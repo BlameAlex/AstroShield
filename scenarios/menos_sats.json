@@ -1,0 +1,26 @@
+{
+  "contract_version": "1.0.1",
+  "id": "menos_sats",
+  "name": "Cuatro satélites",
+  "description": "Solo 4 satélites para 6 regiones: hay que elegir qué cubrir según la prioridad; alimenta la revalidación (n_sats distinto) y la prueba de condición difícil del Entregable 3.",
+  "n_sats": 4,
+  "footprint_deg": 10.0,
+  "regions": [
+    {"id": "yucatan",    "name": "Península de Yucatán, México", "lat": 20.5,  "lon": -89.0,  "priority": "Alta",   "weight": 3, "radius_deg": 2.7},
+    {"id": "amazonia",   "name": "Amazonía brasileña",           "lat": -3.5,  "lon": -62.0,  "priority": "Alta",   "weight": 3, "radius_deg": 2.7},
+    {"id": "california", "name": "California, Estados Unidos",   "lat": 36.8,  "lon": -119.4, "priority": "Media",  "weight": 2, "radius_deg": 2.7},
+    {"id": "sahel",      "name": "Región del Sahel, África",     "lat": 15.0,  "lon": 0.0,    "priority": "Media",  "weight": 2, "radius_deg": 2.7},
+    {"id": "japon",      "name": "Japón",                        "lat": 36.0,  "lon": 138.0,  "priority": "Media",  "weight": 2, "radius_deg": 2.7},
+    {"id": "australia",  "name": "Interior de Australia",        "lat": -25.0, "lon": 133.0,  "priority": "Normal", "weight": 1, "radius_deg": 2.7}
+  ],
+  "debris_zones": [
+    {"id": "atlantico_norte", "name": "Atlántico Norte",    "lat": 45.0,  "lon": -35.0,  "radius_deg": 12.0},
+    {"id": "pacifico_sur",    "name": "Pacífico Sur",       "lat": -30.0, "lon": -120.0, "radius_deg": 10.0},
+    {"id": "polar_norte",     "name": "Región polar norte", "lat": 78.0,  "lon": 30.0,   "radius_deg": 8.0}
+  ],
+  "occupied": [
+    {"id": "objeto_a", "name": "Objeto A", "lat": 10.0,  "lon": 45.0,  "radius_deg": 5.0},
+    {"id": "objeto_b", "name": "Objeto B", "lat": -15.0, "lon": 110.0, "radius_deg": 5.0}
+  ],
+  "fitness": {"k_penalty": 0.5, "redundancy_bonus": 0.05}
+}
