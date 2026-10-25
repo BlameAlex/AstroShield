@@ -57,3 +57,18 @@ def test_footprint_variant_is_copy():
     assert v["footprint_deg"] == 7.5
     assert BASE == original
     model.load_scenario(v)
+
+
+# --- Búsqueda aleatoria de referencia ---------------------------------------
+
+def test_random_search_reproducible():
+    a = rx.random_search(BASE, 2000, 7)
+    b = rx.random_search(BASE, 2000, 7)
+    assert a == b
+    assert a < 1.023077
+
+
+@pytest.mark.slow
+def test_random_search_scale():
+    best = rx.random_search(BASE, 20000, 0)
+    assert 0.3 <= best <= 1.0   # contrato §4.5: máximo ≈ 0.615 con 20 000 configuraciones
