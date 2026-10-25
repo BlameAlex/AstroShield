@@ -54,7 +54,9 @@ export function capPolygon(lat, lon, radiusDeg, n = 64) {
     const last = ring[ring.length - 1][0], first = ring[0][0];
     // Cierra por el polo: el anillo abarca 360° de longitud.
     const end = first + (last < first ? -360 : 360);
-    ring.push([end, ring[0][1]], [end, pole], [first, pole]);
+    ring.push([end, ring[0][1]]);
+    // Recorre el polo en pasos de 90° para que ningún tramo salte más de 180° en lng.
+    for (let q = 0; q <= 4; q++) ring.push([end + (first - end) * q / 4, pole]);
   }
   ring.push([...ring[0]]);
   return [ring];
