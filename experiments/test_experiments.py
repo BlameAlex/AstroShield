@@ -131,7 +131,8 @@ def test_min_margin_signs(sats, esperado, tol):
 def test_gap_uses_oracles():
     assert analysis.gap_opt("base", 1.023077) == pytest.approx(0.0, abs=1e-12)
     assert analysis.gap_opt("inviable", 0.796154) == pytest.approx(0.0, abs=1e-12)
-    assert analysis.gap_opt("prioridad_cambiada", 0.9) is None
+    assert analysis.gap_opt("prioridad_cambiada", 1.021429) == pytest.approx(0.0, abs=1e-12)
+    assert analysis.gap_opt("base_f20", 1.038462) is None          # F ≥ 18.2°: sin oráculo (§10)
 
 
 def test_wilson_bounds():

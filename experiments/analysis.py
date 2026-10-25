@@ -11,8 +11,9 @@ import numpy as np  # noqa: E402
 
 from astroshield import geometry, model  # noqa: E402
 
-ORACLES = {"base": 1.023077, "inviable": 0.796154, "menos_sats": 0.769231,  # contrato 1.0.2 §10
-           "footprint_chico": 1.023077, "base_f5": 1.023077, "base_f10": 1.023077}
+# Contrato 1.0.2 §10. Solo valen con F < 18.2° (régimen de un satélite por región): base_f20 no tiene oráculo.
+ORACLES = {"base": 1.023077, "inviable": 0.796154, "menos_sats": 0.769231, "reducido": 1.023077,
+           "prioridad_cambiada": 1.021429, "footprint_chico": 1.023077, "base_f5": 1.023077, "base_f10": 1.023077}
 CURVE_KEYS = ("best", "mean", "diversity", "n_invalid", "n_covered")
 
 
