@@ -1,0 +1,11 @@
+python: 3.11.9
+numpy: 2.4.6
+matplotlib: 3.11.2
+platform: Windows-10-10.0.26200-SP0
+cpu_count: 16
+jobs: 16
+contract_version: 1.0.1
+git_commit: 852e4e80dabb615ab31407eff28bf6cd3c5c770e
+git_status_clean: False
+command: python experiments/run_experiments.py --all --jobs 16
+missing_scenarios: reducido,inviable,prioridad_cambiada,menos_sats,footprint_chico
