@@ -181,7 +181,45 @@ La generación 3 ya cumple el criterio de "suficientemente buena" (§7), pero qu
 
 ## 4. Condiciones de invalidez
 
-_Pendiente._
+### 4.1 Qué hace inválida una configuración
+
+Una configuración es **inválida** si se cumple cualquiera de estas dos condiciones:
+
+1. **Al menos un satélite viola una zona prohibida.** El satélite i viola la zona z (de desechos u ocupada) si y solo si
+
+   ```
+   central_angle(sat_i, centro_z) < radius_z
+   ```
+
+   La desigualdad es **estricta**: un satélite exactamente sobre el borde es válido. No se usa tolerancia. Cada par (satélite, zona) cuenta como una violación, así que un satélite dentro de dos zonas solapadas suma 2. Las zonas de desechos (`kind = "debris"`) y los objetos ocupados (`kind = "occupied"`) son restricciones igual de duras; solo se distinguen para el análisis y la visualización. `model.violations` devuelve, por cada violación, el satélite, la zona, el tipo, la distancia, el radio y la profundidad (`depth_deg` = radio − distancia).
+2. **El número de satélites no coincide con `n_sats` del escenario.** Esto ocurre al revalidar una solución bajo un escenario con otro `n_sats`, por ejemplo de 8 a 4 en `menos_sats`.
+
+En el resultado de cada ejecución, `valid = (no hay violaciones en la configuración final) y (len(final.sats) == n_sats)`.
+
+### 4.2 Qué no hace inválida una configuración
+
+Dejar una región sin cubrir **no** invalida la configuración; solo baja su aptitud. Esa separación es la que da sentido al escenario `inviable` (§8): siempre es posible colocar los satélites sin violar nada, aunque sea imposible cubrir Yucatán. El problema es inviable en cobertura, no en colocación.
+
+### 4.3 Tratamiento durante la búsqueda: tres modos
+
+| Modo | Aptitud que ve el AG | Qué pasa con un individuo inválido |
+|---|---|---|
+| `penalty` | `base − K·n_viol` (finita) | Sigue en la población, castigado con 0.5 por violación. El AG puede atravesar zonas prohibidas para llegar a otra parte. |
+| `repair` | `base − K·n_viol` | `constraints.repair` corrige cada hijo **antes** de evaluarlo. Cada satélite que viola algo se mueve por el gran círculo que lo une con el centro de la zona más profunda hasta quedar a radio + 0.5° del centro. Si la nueva posición sigue violando otra zona, se remuestrea uniformemente hasta 20 veces. Si queda alguna violación residual, la penalización la castiga. |
+| `strict` | `base` si es válida, `−∞` si no | Pierde cualquier torneo contra un individuo válido y no entra en las estadísticas de la generación (best, mean y worst se calculan sobre aptitudes finitas). |
+
+Comparar los tres modos es una de las pruebas propias del Entregable 3. La solución que se reporta es siempre la final, con su `valid` explícito: el modo penalty puede devolver una configuración inválida si no encontró nada mejor, y en ese caso se informa así.
+
+### 4.4 ¿Las restricciones están activas?
+
+Este hecho no debe ocultarse (§5 del enunciado):
+
+- **En el escenario base, las restricciones no están activas en el óptimo.** Para cubrir completa una región basta con quedar a menos de 7.3° de su centro, y el centro de región más cercano al borde de una zona prohibida está a **18.76°** (Australia y `objeto_b`). El óptimo base se alcanza sin acercarse a ninguna zona.
+- **Sí actúan durante la búsqueda.** El área prohibida es el 2.73 % de la esfera (estimación de Monte Carlo con 2·10⁶ puntos). La probabilidad de que 8 satélites aleatorios sean todos válidos es (1 − 0.0273)⁸ = **0.80**, así que cerca del 20 % de la población inicial es inválida.
+- **Muerden en los escenarios derivados `reducido` e `inviable`** (§8):
+  - En `reducido`, la zona nueva queda a 1.25° del centro de Australia y elimina el 29 % del casquete desde el que se la puede cubrir completa.
+  - En `inviable`, cubrir Yucatán es imposible sin violar.
+  - En `footprint_chico` las restricciones **siguen inactivas en el óptimo**: con F = 5°, cubrir completa exige d ≤ 2.3°, muy lejos del mínimo de 18.76°. Lo que cambia ahí es la dificultad de la búsqueda, no las restricciones.
 
 ## 5. Estrategia evolutiva
 
