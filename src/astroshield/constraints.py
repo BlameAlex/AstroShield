@@ -1,7 +1,7 @@
 """Restricciones espaciales y reparación de constelaciones (§6.5)."""
 import numpy as np
 
-from astroshield import geometry
+from astroshield import geometry, model
 
 
 def _push_along_great_circle(
@@ -38,49 +38,9 @@ def _push_along_great_circle(
     return np.array([lat, lon], dtype=float)
 
 
-def _violations_impl(sats: np.ndarray, sc: dict) -> list[dict]:
-    """Implementación fiel de violaciones (§5.4 y §6.3)."""
-    viols = []
-    n = len(sats)
-    debris = sc.get("debris_zones", [])
-    occupied = sc.get("occupied", [])
-
-    for i in range(n):
-        s_lat, s_lon = sats[i, 0], sats[i, 1]
-        for z in debris:
-            d = float(geometry.central_angle(s_lat, s_lon, z["lat"], z["lon"]))
-            r = float(z["radius_deg"])
-            if d < r:
-                viols.append({
-                    "sat": i,
-                    "zone_id": z["id"],
-                    "kind": "debris",
-                    "distance_deg": d,
-                    "radius_deg": r,
-                    "depth_deg": r - d,
-                })
-        for z in occupied:
-            d = float(geometry.central_angle(s_lat, s_lon, z["lat"], z["lon"]))
-            r = float(z["radius_deg"])
-            if d < r:
-                viols.append({
-                    "sat": i,
-                    "zone_id": z["id"],
-                    "kind": "occupied",
-                    "distance_deg": d,
-                    "radius_deg": r,
-                    "depth_deg": r - d,
-                })
-    return viols
-
-
 def _get_violations(sats: np.ndarray, sc: dict) -> list[dict]:
-    """Obtiene violaciones delegando en model.violations o en el cálculo del contrato."""
-    try:
-        from astroshield import model
-        return model.violations(sats, sc)
-    except NotImplementedError:
-        return _violations_impl(sats, sc)
+    """Violaciones según model.violations (§5.4)."""
+    return model.violations(sats, sc)
 
 
 def _find_zone(sc: dict, zone_id: str) -> dict:
