@@ -98,16 +98,33 @@ def repair(sats: np.ndarray, sc: dict, rng: np.random.Generator,
     Para cada satélite, en orden de índice, que viole al menos una zona:
       1. Toma la zona de mayor depth_deg. Mueve el satélite a lo largo del gran círculo que une
          el centro de la zona con el satélite, hasta distancia radius + margin_deg del centro.
+         El empuje se realiza en 3D con vectores unitarios (geometry.latlon_to_xyz), lo que
+         garantiza robustez en polos y en la línea de ±180°.
          Si el satélite está exactamente en el centro (dirección indefinida), pasa al paso 2.
       2. Si la nueva posición viola cualquier zona, remuestrea con geometry.sample_sphere(1, rng)
          hasta max_tries veces, hasta encontrar una posición válida. Si se agotan los intentos,
-         conserva el último muestreo (la violación queda y run.py la reporta como valid=false).
-    Post: misma forma; los satélites que no violaban quedan bit a bit iguales; salida normalizada;
-      el rng solo se consume al remuestrear. Para el escenario base y los derivados factibles,
-      violations(repair(s), sc) == [] con probabilidad práctica 1 (el área prohibida es el 2.7 %).
-    Nota: en inviable.json la reparación SÍ deja configuraciones válidas (colocar satélites siempre
-      es posible). Lo imposible es cubrir Yucatán: el problema es inviable en cobertura, no en colocación.
-    Los helpers privados (_push_along_great_circle, etc.) viven en este archivo.
+         conserva el último muestreo (con max_tries=0, conserva la posición empujada).
+
+    Postcondiciones e invariantes:
+      - Misma forma (n_sats, 2) y array nuevo; la entrada no se muta.
+      - Los satélites que no violaban quedan bit a bit iguales.
+      - La salida está normalizada (lat en [-90, 90], lon en [-180, 180)).
+      - El rng solo se consume al remuestrear (no durante el empuje determinista).
+      - Para el escenario base y los derivados factibles, violations(repair(s), sc) == []
+        con probabilidad práctica 1 (el área prohibida es del ~2.7 % de la esfera).
+
+    Comportamiento en escenarios inviables y límite:
+      - En inviable.json: colocar satélites siempre es posible (el área permitida supera
+        el 95 % de la esfera), por lo que la reparación siempre produce configuraciones válidas
+        (0 violaciones). Sin embargo, la zona de desechos bloqueo_yucatan (radio 13.0°) impide
+        observar Yucatán (footprint 10.0° + radio 2.7° = 12.7° < 13.0°), dejando la cobertura
+        de Yucatán en 0.0. El problema es inviable en cobertura, no en colocación.
+      - En un escenario sin espacio libre (en memoria, toda la esfera bloqueada):
+        la función termina sin bucles infinitos, devuelve violaciones residuales y consume
+        exactamente max_tries llamadas a geometry.sample_sphere(1, rng) por cada satélite
+        (con max_tries=0, consume 0 remuestreos y conserva la posición empujada).
+
+    Los helpers privados (_push_along_great_circle, _get_violations, etc.) viven en este archivo.
     """
     sats_arr = np.asarray(sats, dtype=float)
     n_sats = len(sats_arr)
