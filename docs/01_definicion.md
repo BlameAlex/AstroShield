@@ -223,11 +223,101 @@ Este hecho no debe ocultarse (§5 del enunciado):
 
 ## 5. Estrategia evolutiva
 
-_Pendiente._
+Se usa un algoritmo genético generacional con elitismo, implementado en `ga.run_ga`. El AG no conoce el problema: recibe una función de aptitud y, de forma opcional, una función de reparación. `ga.py` no importa `model.py`.
+
+```
+            ┌───────────────────────────────────────────────┐
+            │ Inicialización: P configuraciones uniformes    │
+            │ sobre la esfera (sample_sphere); opcionalmente │
+            │ sembradas con una solución previa (initial)    │
+            └──────────────────────┬────────────────────────┘
+                                   │  reparar (solo en modo repair)
+                                   ▼
+            ┌───────────────────────────────────────────────┐
+     ┌─────►│ Evaluar aptitud y registrar history[g]        │
+     │      │ (best, mean, worst, diversidad, inválidos,    │
+     │      │  cobertura y sats del mejor)                  │
+     │      └──────────────────────┬────────────────────────┘
+     │                             │ ¿g == gens? ── sí ──► devolver el mejor
+     │                             ▼ no
+     │      ┌───────────────────────────────────────────────┐
+     │      │ Elitismo: copiar los 2 mejores sin cambios    │
+     │      └──────────────────────┬────────────────────────┘
+     │                             ▼  hasta completar P
+     │      ┌───────────────────────────────────────────────┐
+     │      │ Torneo k = 3 (dos veces) → padres p1, p2      │
+     │      │ Cruce (p = 0.9), satélite a satélite:         │
+     │      │   intercambio completo (p = 0.5) o BLX-0.5    │
+     │      │ Mutación gaussiana (p = 0.2 por satélite,     │
+     │      │   σ = 5° en lat y lon)                        │
+     │      │ Normalizar (reflexión polar + wrap_lon)       │
+     │      │ Reparar (solo en modo repair)                 │
+     │      └──────────────────────┬────────────────────────┘
+     └─────────────────────────────┘  g ← g + 1
+```
+
+Cada paso, y por qué está ahí:
+
+- **Inicialización uniforme sobre la esfera.** Se toma lat = asin(U(−1, 1)) y lon = U(−180, 180). Un muestreo uniforme en (lat, lon) amontonaría puntos en los polos. Al re-optimizar tras un cambio de condiciones (§8), la población se siembra con la solución anterior (`initial`).
+- **Selección por torneo de tamaño 3.** Se eligen k índices con reemplazo y gana el de mayor aptitud (en empate, el primero). Un `−∞` pierde contra cualquier valor finito. La presión selectiva queda moderada y no hace falta escalar la aptitud, que puede ser negativa.
+- **Cruce por satélite.** Para cada índice i:
+  - Con probabilidad 0.5, los hijos **intercambian el satélite completo**. Esto transmite bloques de construcción del tipo "un satélite sobre Yucatán" sin romperlos.
+  - Si no, se aplica **BLX-α** (α = 0.5) en cada coordenada. En longitud se usa la diferencia envuelta (`lon2' = lon1 + wrap_lon(lon2 − lon1)`), para que dos padres a ambos lados de ±180° no produzcan hijos al otro lado del planeta. BLX afina posiciones y explora un poco más allá de los padres.
+- **Mutación gaussiana.** Cada satélite, con probabilidad 0.2, recibe un desplazamiento N(0, 5°) en lat y en lon. σ = 5° es del orden de F − r = 7.3°: mueve un satélite dentro del casquete útil sin saltar al otro lado del mundo.
+- **Normalización y reparación.** Después de cada operador, los hijos vuelven a rango (§1). En modo repair, `constraints.repair` los corrige (§4.3).
+- **Elitismo de 2 individuos.** Los mejores pasan intactos, así que la curva del mejor por generación es no decreciente y la solución final es la mejor vista en toda la ejecución.
+- **Diversidad.** En cada generación se registra la media, sobre todos los pares de individuos, de la distancia angular media entre sus satélites del mismo índice (en grados). Sirve para detectar convergencia prematura.
+- **Terminación.** Solo por número de generaciones, sin parada temprana, para que todas las ejecuciones sean comparables con el mismo presupuesto de evaluaciones.
+- **Reproducibilidad.** Toda la aleatoriedad sale del único generador que crea el punto de entrada (`run.py` o `experiments/`) con la semilla. La misma semilla da el mismo `history` y la misma solución.
+
+Todo lo necesario para analizar la evolución queda en el resultado (`results/<id>.json`, §9 del contrato): aptitudes por generación, diversidad, inválidos, cobertura y satélites del mejor de cada generación. Eso permite estudiar la convergencia y reproducir la evolución en el visor 3D.
 
 ## 6. Parámetros y valores iniciales
 
-_Pendiente._
+### 6.1 Parámetros del algoritmo (`ga.DEFAULT_PARAMS`)
+
+| Parámetro | Valor inicial | De dónde sale |
+|---|---|---|
+| `pop_size` | 100 | 100 × (200 + 1) = 20 100 evaluaciones por ejecución: suficiente para converger y viable para 30 semillas × varios escenarios × 3 modos |
+| `gens` | 200 | Margen para que la curva del mejor se estabilice. El Entregable 3 lo comprueba con las curvas de `history` |
+| `tournament_k` | 3 | Presión selectiva moderada, valor estándar |
+| `p_crossover` | 0.9 | Valor estándar en un AG generacional |
+| `blx_alpha` | 0.5 | BLX-0.5 explora más allá del segmento entre los padres sin divergir |
+| `p_swap` | 0.5 | La mitad de los satélites se intercambian completos y la otra mitad se mezclan con BLX |
+| `p_mut` | 0.2 | Unos 1.6 satélites mutados por hijo (0.2 × 8) |
+| `sigma_mut` | 5.0° | Del orden de F − r = 7.3° (§5) |
+| `elitism` | 2 | Garantiza que el mejor de la historia no se pierda |
+| `seed` | 42 en la CLI | Informativa: el resultado guarda la semilla con la que se creó el generador |
+
+Los parámetros se pueden cambiar sin tocar código: `python run.py --scenario ... --gens N --pop P --params params.json --seed S --mode M`.
+
+### 6.2 Parámetros del escenario (`scenarios/*.json`)
+
+| Parámetro | Valor base | De dónde sale |
+|---|---|---|
+| `n_sats` | 8 | Enunciado §1.1 |
+| `regions[*].radius_deg` | 2.7° | 300 km del enunciado (§2.1) |
+| `regions[*].weight` | 3/2/1 | Prioridades Alta/Media/Normal (§3.1) |
+| `footprint_deg` | 10.0° | Un satélite por región, lejos del régimen trivial (≥ 18.2°) y con 7.3 % de la esfera con señal (§2.2) |
+| `fitness.redundancy_bonus` (β) | 0.05 | β < 1/13 (§3.3) |
+| `fitness.k_penalty` (K) | 0.5 | K > 3/13 + β (§3.3) |
+| `debris_zones`, `occupied` | 3 + 2 casquetes | Enunciado §3.1 y §3.2 |
+
+### 6.3 Parámetros de la reparación (`constraints.repair`)
+
+`margin_deg = 0.5°` deja el satélite reparado un poco fuera del borde, para que una mutación pequeña no lo devuelva a la zona. `max_tries = 20` remuestreos: con un área prohibida del 2.7 % al 6.4 % (§8), fallar 20 veces seguidas tiene una probabilidad del orden de 0.064²⁰ ≈ 10⁻²⁴.
+
+### 6.4 Qué se varía en las pruebas
+
+Los valores iniciales no se dan por buenos sin más. El Entregable 3 (`experiments/`) prueba:
+
+- 30 semillas por configuración;
+- los 3 modos de restricción;
+- la sensibilidad al footprint (5°, 7.5°, 10°, 12.5°, 15° y 20°);
+- la sensibilidad al tamaño de población (20, 50, 100 y 200) con presupuesto fijo de unas 20 000 evaluaciones;
+- una búsqueda aleatoria con el mismo presupuesto como línea de referencia.
+
+K y β solo se varían en copias en memoria, nunca en `scenarios/`.
 
 ## 7. Criterio de solución suficientemente buena
 
