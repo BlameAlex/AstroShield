@@ -21,14 +21,15 @@ if str(ROOT / "src") not in sys.path:  # mismo criterio que el shim run.py de la
 
 import numpy as np  # noqa: E402
 
+import analysis  # noqa: E402
 from astroshield import model  # noqa: E402
 from astroshield.geometry import sample_sphere  # noqa: E402
+from astroshield.run import run  # noqa: E402
 
 SEEDS = list(range(42, 72))
 QUICK_SEEDS = SEEDS[:3]
 MODES = ("penalty", "repair", "strict")
-ORACLES = {"base": 1.023077, "inviable": 0.788462, "menos_sats": 0.769231,
-           "footprint_chico": 1.023077, "base_f5": 1.023077, "base_f10": 1.023077}
+ORACLES = analysis.ORACLES
 FOOTPRINTS = (5.0, 7.5, 10.0, 12.5, 15.0, 20.0)
 POPS = (20, 50, 100, 200)
 POP_BUDGET = 20000          # gens = POP_BUDGET / P  ->  P·(gens+1) ≈ 20 100 evaluaciones
@@ -90,28 +91,53 @@ def campaign_tasks(name: str, quick: bool = False) -> list[dict]:
         return out
     if name == "aleatoria":
         n = QUICK_RANDOM_EVALS if quick else RANDOM_EVALS
-        return [_task(name, "base_aleatoria", base, "penalty", {"n_evals": n}, s) for s in seeds]
+        step = QUICK_PARAMS["pop_size"] if quick else 100
+        return [_task(name, "base_aleatoria", base, "penalty", {"n_evals": n, "step": step}, s)
+                for s in seeds]
     raise ValueError(f"campaña desconocida: {name}")
+
+
+def _random_run(sc: dict, n_evals: int, seed: int, batch: int = 2000) -> tuple[np.ndarray, np.ndarray]:
+    """(aptitudes penalty en orden de muestreo, mejor configuración). RNG propio default_rng(seed)."""
+    rng = np.random.default_rng(seed)
+    n = sc["n_sats"]
+    out = np.empty(n_evals, dtype=float)
+    best, best_fit = None, -np.inf
+    for k in range(0, n_evals, batch):
+        m = min(batch, n_evals - k)
+        pop = sample_sphere(m * n, rng).reshape(m, n, 2)
+        out[k:k + m] = [model.fitness(s, sc, "penalty") for s in pop]
+        j = int(np.argmax(out[k:k + m]))
+        if out[k + j] > best_fit:
+            best, best_fit = pop[j].copy(), out[k + j]
+    return out, best
 
 
 def random_fitnesses(sc: dict, n_evals: int, seed: int, batch: int = 2000) -> np.ndarray:
     """Aptitud penalty de n_evals configuraciones uniformes (línea base del AG), en orden de muestreo.
 
-    RNG propio: np.random.default_rng(seed). Usa model.fitness, no una copia de la fórmula.
+    Usa model.fitness, no una copia de la fórmula.
     """
-    rng = np.random.default_rng(seed)
-    n = sc["n_sats"]
-    out = np.empty(n_evals, dtype=float)
-    for k in range(0, n_evals, batch):
-        m = min(batch, n_evals - k)
-        pop = sample_sphere(m * n, rng).reshape(m, n, 2)
-        out[k:k + m] = [model.fitness(s, sc, "penalty") for s in pop]
-    return out
+    return _random_run(sc, n_evals, seed, batch)[0]
 
 
 def random_search(sc: dict, n_evals: int, seed: int, batch: int = 2000) -> float:
     """Mejor aptitud penalty de n_evals configuraciones aleatorias uniformes."""
     return float(random_fitnesses(sc, n_evals, seed, batch).max())
+
+
+def run_id(t: dict) -> str:
+    return f"{t['config']}_s{t['seed']}"
+
+
+def run_task(t: dict) -> tuple[dict, dict, list]:
+    """Ejecuta una tarea y devuelve (fila CSV, curvas, sats finales). Nivel de módulo: picklable (spawn)."""
+    if t["campaign"] == "aleatoria":
+        fits, best = _random_run(t["scenario"], t["params"]["n_evals"], t["seed"])
+        return (analysis.random_row(t, fits, best), analysis.random_curves(fits, t["params"]["step"]),
+                best.tolist())
+    res = run(t["scenario"], t["mode"], t["params"], t["seed"], run_id=run_id(t))
+    return analysis.run_row(res, t), analysis.run_curves(res), res["final"]["sats"]
 
 
 def build_parser() -> argparse.ArgumentParser:
