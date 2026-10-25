@@ -110,12 +110,19 @@ def run(scenario: str | Path | dict, mode: str = "penalty", params: dict | None 
     }
 
 
+def _native(o):
+    """Convierte escalares numpy (np.int64, np.float64, np.bool_) a tipos nativos para json."""
+    if isinstance(o, np.generic):
+        return o.item()
+    raise TypeError(f"Objeto no serializable: {type(o).__name__}")
+
+
 def save_result(result: dict, out_dir: str | Path = "results") -> Path:
     """Escribe out_dir/<result['id']>.json (indent=2, ensure_ascii=False) y devuelve la ruta. Crea out_dir si no existe."""
     out_path = Path(out_dir)
     out_path.mkdir(parents=True, exist_ok=True)
     out_file = out_path / f"{result['id']}.json"
-    content = json.dumps(result, indent=2, ensure_ascii=False, allow_nan=False)
+    content = json.dumps(result, indent=2, ensure_ascii=False, allow_nan=False, default=_native)
     out_file.write_text(content, encoding="utf-8")
     return out_file
 
