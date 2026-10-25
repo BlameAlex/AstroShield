@@ -109,4 +109,51 @@ def repair(sats: np.ndarray, sc: dict, rng: np.random.Generator,
       es posible). Lo imposible es cubrir Yucatán: el problema es inviable en cobertura, no en colocación.
     Los helpers privados (_push_along_great_circle, etc.) viven en este archivo.
     """
-    raise NotImplementedError
+    sats_arr = np.asarray(sats, dtype=float)
+    n_sats = len(sats_arr)
+    out = sats_arr.copy()
+    if n_sats == 0:
+        return geometry.normalize_latlon(out)
+
+    all_viols = _get_violations(sats_arr, sc)
+    if not all_viols:
+        return out
+
+    for i in range(n_sats):
+        sat_viols = [v for v in all_viols if v["sat"] == i]
+        if not sat_viols:
+            continue
+
+        worst_viol = max(sat_viols, key=lambda v: v["depth_deg"])
+        zone = _find_zone(sc, worst_viol["zone_id"])
+        z_lat, z_lon = float(zone["lat"]), float(zone["lon"])
+        z_rad = float(zone["radius_deg"])
+        target_dist = z_rad + float(margin_deg)
+
+        s_lat, s_lon = float(sats_arr[i, 0]), float(sats_arr[i, 1])
+        pushed = _push_along_great_circle(s_lat, s_lon, z_lat, z_lon, target_dist)
+
+        if pushed is None:
+            # Satélite en el centro exacto: dirección indefinida, pasa directamente al paso 2
+            candidate = sats_arr[i].copy()
+            for _ in range(max_tries):
+                sampled = geometry.sample_sphere(1, rng)[0]
+                candidate = sampled
+                if len(_get_violations(candidate.reshape(1, 2), sc)) == 0:
+                    break
+            out[i] = geometry.normalize_latlon(candidate.reshape(1, 2))[0]
+        else:
+            pushed_norm = geometry.normalize_latlon(pushed.reshape(1, 2))[0]
+            # Paso 2: verificar si la posición empujada viola alguna zona
+            if len(_get_violations(pushed_norm.reshape(1, 2), sc)) == 0:
+                out[i] = pushed_norm
+            else:
+                candidate = pushed_norm
+                for _ in range(max_tries):
+                    sampled = geometry.sample_sphere(1, rng)[0]
+                    candidate = sampled
+                    if len(_get_violations(candidate.reshape(1, 2), sc)) == 0:
+                        break
+                out[i] = geometry.normalize_latlon(candidate.reshape(1, 2))[0]
+
+    return out
