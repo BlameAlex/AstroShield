@@ -35,9 +35,10 @@ export function capPolygon(lat, lon, radiusDeg, n = 64) {
   const ring = [];
   let prev = null;
   for (let k = 0; k < n; k++) {
-    // Rumbo decreciente (N → O → S → E): sentido antihorario visto desde fuera de la
-    // esfera, como pide GeoJSON (RFC 7946) para el anillo exterior.
-    const th = -2 * Math.PI * k / n;
+    // Rumbo creciente (N → E → S → O): sentido horario visto desde fuera de la esfera.
+    // globe.gl triangula con la convención esférica de d3-geo, donde el interior de un
+    // anillo horario es el casquete pequeño; con el sentido contrario pinta el resto del globo.
+    const th = 2 * Math.PI * k / n;
     const p2 = Math.asin(Math.sin(p1) * Math.cos(d) + Math.cos(p1) * Math.sin(d) * Math.cos(th));
     let lng = lon + Math.atan2(Math.sin(th) * Math.sin(d) * Math.cos(p1),
                                Math.cos(d) - Math.sin(p1) * Math.sin(p2)) * DEG;
