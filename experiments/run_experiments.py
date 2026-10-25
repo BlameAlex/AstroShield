@@ -311,7 +311,8 @@ def run_revalidations(out: Path) -> list[dict]:
         rows.append({"scenario": d, "still_valid": rv["still_valid"], "reasons": "; ".join(rv["reasons"]),
                      "fitness_before": rv["fitness_before"], "fitness_after": rv["fitness_after"],
                      "lost_regions": " ".join(rv["lost_regions"]), "gained_regions": " ".join(rv["gained_regions"]),
-                     "n_violations": len(rv["violations"])})
+                     "n_violations": len(rv["violations"]),
+                     "violated_zones": " ".join(sorted({v["zone_id"] for v in rv["violations"]}))})
     if rows:
         write_csv(rows, out / "exp_runs" / "reval.csv")
     return rows
@@ -403,6 +404,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--verify", action="store_true", help="re-ejecuta y compara hashes de exp_runs/*.csv")
     p.add_argument("--jobs", type=int, default=os.cpu_count() or 1, help="procesos en paralelo")
     p.add_argument("--out", default=str(ROOT / "results"), help="directorio raíz de salida")
+    p.add_argument("--reval", action="store_true", help="solo P11: revalida exp_json/base_repair_s42.json")
     p.add_argument("--tables", action="store_true", help="solo regenera tablas y figuras desde exp_runs/")
     p.add_argument("--no-figs", action="store_true", help="no genera figuras (implícito con --quick)")
     return p
@@ -425,6 +427,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.tables:
         make_outputs(out, figs=not args.no_figs)
         return 0
+    if args.reval:
+        rows = run_revalidations(out)
+        print(f"P11: {len(rows)} revalidaciones en {out / 'exp_reval'}")
+        make_outputs(out, figs=False)
+        return 0 if rows else 1
     if args.all:
         names = list(CAMPAIGNS)
     elif args.only:
