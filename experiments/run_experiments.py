@@ -205,6 +205,14 @@ def read_csv(path: Path) -> list[dict]:
         return [{k: _parse(v) for k, v in r.items()} for r in csv.DictReader(f)]
 
 
+def merge_csv(rows: list[dict], path: Path, key: str, merge: bool = True) -> list[dict]:
+    """Escribe rows en path; con merge conserva las filas previas cuyo `key` no aparece en rows (--only)."""
+    new = {r[key] for r in rows}
+    old = [r for r in read_csv(path) if r[key] not in new] if merge and path.exists() else []
+    write_csv(old + rows, path)
+    return old + rows
+
+
 def file_hash(path: Path) -> str:
     """sha256 con fin de línea normalizado a LF (git en Windows puede convertir a CRLF)."""
     return hashlib.sha256(Path(path).read_bytes().replace(b"\r\n", b"\n")).hexdigest()
@@ -230,7 +238,7 @@ def run_campaigns(names: list[str], quick: bool, jobs: int, out: Path) -> dict:
                    for t, _, _, sats, _ in items for i, s in enumerate(sats)], runs_dir / f"finales_{c}.csv")
     times = [{"campaign": c, "n_tasks": len(items), "cpu_s": sum(x[4] for x in items),
               "mean_task_s": sum(x[4] for x in items) / len(items)} for c, items in by_c.items()]
-    times.append({"campaign": "TOTAL", "n_tasks": len(tasks), "cpu_s": sum(r["cpu_s"] for r in times),
+    times.append({"campaign": "TOTAL " + "+".join(by_c), "n_tasks": len(tasks), "cpu_s": sum(r["cpu_s"] for r in times),
                   "wall_s": wall, "jobs": jobs})
     return {"by_campaign": by_c, "times": times}
 
@@ -267,7 +275,7 @@ def _run_full(t: dict) -> dict:
     return run(t["scenario"], t["mode"], t["params"], t["seed"], run_id=run_id(t))
 
 
-def save_representatives(by_c: dict, jobs: int, out: Path) -> list[dict]:
+def save_representatives(by_c: dict, jobs: int, out: Path, merge: bool = False) -> list[dict]:
     """Re-ejecuta mejor/mediana/peor (base, reducido, inviable), mediana (sensibilidad) y base_repair_s42."""
     wanted: dict[tuple[str, int], list[str]] = {}
     for c, items in by_c.items():
@@ -288,7 +296,8 @@ def save_representatives(by_c: dict, jobs: int, out: Path) -> list[dict]:
         path = save_result(res, out / "exp_json")
         table.append({"config": k[0], "seed": k[1], "roles": "+".join(wanted[k]),
                       "final_penalty_fitness": row["final_penalty_fitness"], "file": path.name})
-    write_csv(table, out / "exp_meta" / "representativas.csv")
+    path = out / "exp_meta" / "representativas.csv"
+    merge_csv(table, path, "config", merge)
     return table
 
 
@@ -311,7 +320,8 @@ def run_revalidations(out: Path) -> list[dict]:
         rows.append({"scenario": d, "still_valid": rv["still_valid"], "reasons": "; ".join(rv["reasons"]),
                      "fitness_before": rv["fitness_before"], "fitness_after": rv["fitness_after"],
                      "lost_regions": " ".join(rv["lost_regions"]), "gained_regions": " ".join(rv["gained_regions"]),
-                     "n_violations": len(rv["violations"])})
+                     "n_violations": len(rv["violations"]),
+                     "violated_zones": " ".join(sorted({v["zone_id"] for v in rv["violations"]}))})
     if rows:
         write_csv(rows, out / "exp_runs" / "reval.csv")
     return rows
@@ -326,22 +336,40 @@ def _git(*args) -> str:
         return "?"
 
 
-def write_meta(out: Path, argv: list[str], jobs: int, times: list[dict] | None) -> None:
+def write_meta(out: Path, argv: list[str], jobs: int, times: list[dict] | None, names: list[str],
+               merge: bool = False, clean: bool | None = None) -> None:
+    """entorno.txt, sha256.txt y tiempos.csv. Con merge (--only) conserva lo de las otras campañas.
+
+    clean: estado de git ANTES de ejecutar (al final el árbol ya tiene los CSV nuevos).
+    """
     meta = out / "exp_meta"
     meta.mkdir(parents=True, exist_ok=True)
     import matplotlib
-    lines = [f"python: {platform.python_version()}", f"numpy: {np.__version__}",
+    lines = ["campaigns: " + ",".join(names), f"python: {platform.python_version()}", f"numpy: {np.__version__}",
              f"matplotlib: {matplotlib.__version__}", f"platform: {platform.platform()}",
              f"cpu_count: {os.cpu_count()}", f"jobs: {jobs}", f"contract_version: {CONTRACT_VERSION}",
              f"git_commit: {_git('rev-parse', 'HEAD')}",
-             f"git_status_clean: {_git('status', '--porcelain') == ''}",
+             f"git_status_clean: {_git('status', '--porcelain') == '' if clean is None else clean}",
              "command: python experiments/run_experiments.py " + " ".join(argv),
              "missing_scenarios: " + ",".join(d for d in DERIVED if not scenario_path(d).exists())]
-    (meta / "entorno.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
-    hashes = [f"{file_hash(p)}  exp_runs/{p.name}" for p in sorted((out / "exp_runs").glob("*.csv"))]
-    (meta / "sha256.txt").write_text("\n".join(hashes) + "\n", encoding="utf-8")
+    env = meta / "entorno.txt"
+    text = "\n".join(lines) + "\n"
+    if merge and env.exists():   # un bloque por invocación; se reemplaza el de las mismas campañas
+        old = [b.strip("\n") for b in env.read_text(encoding="utf-8").split("\n\n")
+               if b.strip() and lines[0] not in b.splitlines()]
+        text = "\n\n".join(old + [text.rstrip("\n")]) + "\n"
+    env.write_text(text, encoding="utf-8")
+    sha = meta / "sha256.txt"
+    mine = {f"{p}{c}.csv" for c in names for p in ("", "curvas_", "finales_")} | {"reval.csv"}
+    hashes = {}
+    if merge and sha.exists():   # hashes previos de las campañas que esta invocación no reescribió
+        hashes = {n: h for h, n in (ln.split(maxsplit=1) for ln in sha.read_text(encoding="utf-8").splitlines()
+                                    if ln.strip())}
+    hashes.update({f"exp_runs/{p.name}": file_hash(p) for p in sorted((out / "exp_runs").glob("*.csv"))
+                   if not merge or p.name in mine or f"exp_runs/{p.name}" not in hashes})
+    sha.write_text("".join(f"{h}  {n}\n" for n, h in sorted(hashes.items())), encoding="utf-8")
     if times is not None:
-        write_csv(times, meta / "tiempos.csv")
+        merge_csv(times, meta / "tiempos.csv", "campaign", merge)
 
 
 def verify_hashes(names: list[str], quick: bool, jobs: int, out: Path) -> int:
@@ -403,6 +431,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--verify", action="store_true", help="re-ejecuta y compara hashes de exp_runs/*.csv")
     p.add_argument("--jobs", type=int, default=os.cpu_count() or 1, help="procesos en paralelo")
     p.add_argument("--out", default=str(ROOT / "results"), help="directorio raíz de salida")
+    p.add_argument("--reval", action="store_true", help="solo P11: revalida exp_json/base_repair_s42.json")
     p.add_argument("--tables", action="store_true", help="solo regenera tablas y figuras desde exp_runs/")
     p.add_argument("--no-figs", action="store_true", help="no genera figuras (implícito con --quick)")
     return p
@@ -418,6 +447,7 @@ def make_outputs(out: Path, figs: bool) -> None:
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else list(argv)
     args = build_parser().parse_args(argv)
+    clean = _git("status", "--porcelain") == ""
     out = Path(args.out)
     if args.bench:
         bench(args.jobs, out)
@@ -425,6 +455,11 @@ def main(argv: list[str] | None = None) -> int:
     if args.tables:
         make_outputs(out, figs=not args.no_figs)
         return 0
+    if args.reval:
+        rows = run_revalidations(out)
+        print(f"P11: {len(rows)} revalidaciones en {out / 'exp_reval'}")
+        make_outputs(out, figs=False)
+        return 0 if rows else 1
     if args.all:
         names = list(CAMPAIGNS)
     elif args.only:
@@ -447,15 +482,15 @@ def main(argv: list[str] | None = None) -> int:
     print(f"campañas {names}: {time.perf_counter() - t0:.1f} s")
     t1 = time.perf_counter()
     try:
-        reps = save_representatives(camp["by_campaign"], args.jobs, out)
+        reps = save_representatives(camp["by_campaign"], args.jobs, out, merge=not args.all)
     except DeterminismError as e:
         print(f"ERROR de determinismo: {e}", file=sys.stderr)
         return 3
-    camp["times"].append({"campaign": "representativas", "n_tasks": len(reps),
+    camp["times"].append({"campaign": "representativas " + "+".join(names), "n_tasks": len(reps),
                           "wall_s": time.perf_counter() - t1, "jobs": args.jobs})
     print(f"representativas: {len(reps)} JSON en {time.perf_counter() - t1:.1f} s (determinismo OK)")
     run_revalidations(out)
-    write_meta(out, argv, args.jobs, camp["times"])
+    write_meta(out, argv, args.jobs, camp["times"], names, merge=not args.all, clean=clean)
     make_outputs(out, figs=not (args.quick or args.no_figs))
     return 0
 
