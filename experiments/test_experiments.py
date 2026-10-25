@@ -411,6 +411,8 @@ def test_p5_p6_tablas_y_figuras_quick(derived_out):
     for c in ("base", "reducido", "inviable"):
         for m in rx.MODES:
             assert f"| {c} | {m} |" in reg
+    zonas = (tab / "p5_zonas.md").read_text(encoding="utf-8").splitlines()[2:]
+    assert sum(int(ln.split("|")[3]) for ln in zonas) == 3 * len(rx.QUICK_SEEDS)   # una zona por ejecución
     pngs = {p.name for p in plots.make_all(out)}
     assert {"p5_boxplot.png", "p5_margen.png", "p6_boxplot.png"} <= pngs
 

@@ -373,6 +373,26 @@ def t_p5(red: list[dict], base: list[dict]) -> str:
     return t + "\n" + t_p7(red)
 
 
+def t_margin_zones(fin: list[dict], sc: dict) -> str:
+    """Zona que fija min_margin_deg en cada ejecución (desde finales_<c>.csv), por configuración."""
+    sats: dict[tuple, list] = {}
+    for r in fin:
+        sats.setdefault((r["config"], r["seed"]), []).append([r["lat"], r["lon"]])
+    zones = sc["debris_zones"] + sc["occupied"]
+    zl = np.array([[z["lat"], z["lon"]] for z in zones], dtype=float)
+    zr = np.array([z["radius_deg"] for z in zones], dtype=float)
+    agg: dict[tuple, list[float]] = {}
+    for (cfg, _), s in sats.items():
+        s = np.asarray(s, dtype=float)
+        d = geometry.central_angle(s[:, None, 0], s[:, None, 1], zl[None, :, 0], zl[None, :, 1]) - zr[None, :]
+        j = int(np.unravel_index(d.argmin(), d.shape)[1])
+        agg.setdefault((cfg, zones[j]["id"]), []).append(float(d.min()))
+    rows = [[cfg, z, len(v), _f(float(np.median(v)), 2), _f(min(v), 2), sum(x < P5_MARGIN_ACTIVE for x in v)]
+            for (cfg, z), v in sorted(agg.items(), key=lambda kv: (kv[0][0], -len(kv[1]), kv[0][1]))]
+    return md_table(["config", "zona que fija el margen mínimo", "ejecuciones", "margen mediano (°)",
+                     "margen menor (°)", f"< {P5_MARGIN_ACTIVE:g}°"], rows)
+
+
 def t_p6(inv: list[dict]) -> str:
     """P6: ningún final válido toca Yucatán y ninguna aptitud supera el óptimo 0.788462 (§10), por modo."""
     n_reg = len(region_ids(inv))
@@ -530,6 +550,9 @@ def write_tables(out: Path) -> list[Path]:
         tables["p8_modos"] = t_p8(allm)
     if red:
         tables["p5_resumen"] = t_p5(red, base)
+        sc_red = ROOT / "scenarios" / "reducido.json"
+        if (runs / "finales_reducido.csv").exists() and sc_red.exists():
+            tables["p5_zonas"] = t_margin_zones(load("finales_reducido"), model.load_scenario(sc_red))
     if inv:
         tables["p6_resumen"] = t_p6(inv)
     if fp:
