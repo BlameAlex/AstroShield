@@ -1,0 +1,6 @@
+run base penalty 100x200: 9.5 s
+run base repair 100x200: 16.1 s
+run base strict 100x200: 14.2 s
+aleatoria 20100: 449.8 s
+proyeccion cpu --all (s): 18075.7 s
+proyeccion reloj --all con 16 procesos (s): 1129.7 s
