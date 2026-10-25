@@ -2,6 +2,7 @@ import json
 import math
 from pathlib import Path
 from typing import Union, Dict, Any, List
+<<<<<<< HEAD
 
 # Constantes del contrato actualizadas
 PRIORITY_WEIGHTS = {
@@ -18,12 +19,26 @@ def load_scenario(source: Union[str, Path, Dict[str, Any]]) -> Dict[str, Any]:
     """
     if isinstance(source, (str, Path)):
         path = Path(source)
+=======
+
+def load_scenario(scenario_input: Union[str, Path, Dict[str, Any]]) -> Dict[str, Any]:
+    """
+    Carga un escenario desde un archivo JSON (ruta str o Path) o desde un diccionario.
+    """
+    if isinstance(scenario_input, (str, Path)):
+        path = Path(scenario_input)
+>>>>>>> origin/ola1-ga
         if not path.exists():
             raise FileNotFoundError(f"No se encontró el archivo de escenario en: {path}")
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
+<<<<<<< HEAD
     elif isinstance(source, dict):
         return source
+=======
+    elif isinstance(scenario_input, dict):
+        return scenario_input
+>>>>>>> origin/ola1-ga
     else:
         raise TypeError("El escenario debe ser una ruta (str o Path) o un diccionario.")
 
@@ -59,6 +74,7 @@ def check_coverage(scenario: Dict[str, Any], satellite_positions: List[Dict[str,
     return {
         "covered_regions": covered,
         "coverage_ratio": ratio
+<<<<<<< HEAD
     }
 
 def coverage_matrix(sats: List[Dict[str, Any]], sc: Dict[str, Any]) -> Any:
@@ -85,4 +101,6 @@ def snapshot(sats: List[Dict[str, Any]], sc: Dict[str, Any], mode: str = 'penalt
         "fitness": fit,
         "mode": mode,
         "satellites": sats
+=======
+>>>>>>> origin/ola1-ga
     }
