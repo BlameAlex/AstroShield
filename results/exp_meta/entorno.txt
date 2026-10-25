@@ -9,3 +9,16 @@ git_commit: 852e4e80dabb615ab31407eff28bf6cd3c5c770e
 git_status_clean: False
 command: python experiments/run_experiments.py --all --jobs 16
 missing_scenarios: reducido,inviable,prioridad_cambiada,menos_sats,footprint_chico
+
+campaigns: reducido,inviable
+python: 3.14.8
+numpy: 2.5.4
+matplotlib: 3.11.2
+platform: Linux-7.2.10-200.fc44.x86_64-x86_64-with-glibc2.43
+cpu_count: 16
+jobs: 16
+contract_version: 1.0.1
+git_commit: 4cda00ad9e8a4ccf950f16ebac6d7e6f7bf0b6ab
+git_status_clean: False
+command: python experiments/run_experiments.py --only reducido,inviable --jobs 16
+missing_scenarios: 

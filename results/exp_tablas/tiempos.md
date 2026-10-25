@@ -6,6 +6,10 @@
 | aleatoria | 30 | 1767.9 | 58.93 | — | — |
 | TOTAL | 420 | 42995.5 | — | 2849.5 | 16 |
 | representativas | 20 | — | — | 231.9 | 16 |
+| reducido | 90 | 4429.9 | 49.22 | — | — |
+| inviable | 90 | 4501.7 | 50.02 | — | — |
+| TOTAL reducido+inviable | 180 | 8931.5 | — | 563.8 | 16 |
+| representativas reducido+inviable | 18 | — | — | 67.7 | 16 |
 
 | primer --bench (1 proceso, exp_meta/bench_inicial.txt) | segundos |
 |---|---|
