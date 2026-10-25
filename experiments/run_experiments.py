@@ -19,7 +19,10 @@ ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT / "src") not in sys.path:  # mismo criterio que el shim run.py de la raíz
     sys.path.insert(0, str(ROOT / "src"))
 
+import numpy as np  # noqa: E402
+
 from astroshield import model  # noqa: E402
+from astroshield.geometry import sample_sphere  # noqa: E402
 
 SEEDS = list(range(42, 72))
 QUICK_SEEDS = SEEDS[:3]
@@ -89,6 +92,26 @@ def campaign_tasks(name: str, quick: bool = False) -> list[dict]:
         n = QUICK_RANDOM_EVALS if quick else RANDOM_EVALS
         return [_task(name, "base_aleatoria", base, "penalty", {"n_evals": n}, s) for s in seeds]
     raise ValueError(f"campaña desconocida: {name}")
+
+
+def random_fitnesses(sc: dict, n_evals: int, seed: int, batch: int = 2000) -> np.ndarray:
+    """Aptitud penalty de n_evals configuraciones uniformes (línea base del AG), en orden de muestreo.
+
+    RNG propio: np.random.default_rng(seed). Usa model.fitness, no una copia de la fórmula.
+    """
+    rng = np.random.default_rng(seed)
+    n = sc["n_sats"]
+    out = np.empty(n_evals, dtype=float)
+    for k in range(0, n_evals, batch):
+        m = min(batch, n_evals - k)
+        pop = sample_sphere(m * n, rng).reshape(m, n, 2)
+        out[k:k + m] = [model.fitness(s, sc, "penalty") for s in pop]
+    return out
+
+
+def random_search(sc: dict, n_evals: int, seed: int, batch: int = 2000) -> float:
+    """Mejor aptitud penalty de n_evals configuraciones aleatorias uniformes."""
+    return float(random_fitnesses(sc, n_evals, seed, batch).max())
 
 
 def build_parser() -> argparse.ArgumentParser:
