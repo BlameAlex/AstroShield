@@ -310,6 +310,7 @@ def t_p7(rows: list[dict]) -> str:
 
 
 def t_regions(rows_by_c: dict[str, list[dict]]) -> str:
+    """Escenario × modo: % de semillas con c == 1.0 (media de c) por región y 6/6 cubiertas."""
     out, ids = [], None
     for rows in rows_by_c.values():
         ids = region_ids(rows)
@@ -318,8 +319,9 @@ def t_regions(rows_by_c: dict[str, list[dict]]) -> str:
             for i in ids:
                 vals = [r[f"cov_{i}"] for r in rs]
                 cells.append(f"{100 * sum(v == 1.0 for v in vals) / len(vals):.0f} % ({np.mean(vals):.3f})")
-            out.append([cfg] + cells)
-    return md_table(["config"] + ids, out)
+            n_all = sum(r["n_covered"] == len(ids) for r in rs)
+            out.append([rs[0]["scenario_id"], rs[0]["mode"]] + cells + [f"{n_all}/{len(rs)}"])
+    return md_table(["escenario", "modo"] + ids + ["6/6 cubiertas"], out)
 
 
 def t_redundancy(rows: list[dict]) -> str:
@@ -333,6 +335,85 @@ def t_redundancy(rows: list[dict]) -> str:
         for key, n in sorted(pats.items(), key=lambda kv: (-kv[1], kv[0])):
             out.append([cfg, key, n])
     return md_table(["config", "regiones con ≥2 satélites que las cubren completas", "semillas"], out)
+
+
+P5_MARGIN_ACTIVE = 1.0      # mediana de min_margin_deg en reducido por debajo de esto ⇒ restricción activa
+P5_MARGIN_BASE = 10.0       # ... y en base por encima de esto (allí no está activa, §4.5)
+P6_CAP = ORACLES["inviable"]
+P6_GAP = 0.01
+
+
+def _verdict(ok: bool) -> str:
+    return "PASA" if ok else "FALLA"
+
+
+def t_p5(red: list[dict], base: list[dict]) -> str:
+    """P5: restricción activa en reducido (mediana del margen < 1° frente a > 10° en base), por modo."""
+    n_reg = len(region_ids(red))
+    bm = _groups(base, "mode")
+    out = []
+    for m, rs in _groups(red, "mode").items():
+        bs = bm.get(m, [])
+        med_r = _q([r["min_margin_deg"] for r in rs], 50)
+        med_b = _q([r["min_margin_deg"] for r in bs], 50)
+        active = "—" if med_b is None else _verdict(med_r < P5_MARGIN_ACTIVE and med_b > P5_MARGIN_BASE)
+        fit_r = float(np.median([r["final_penalty_fitness"] for r in rs]))
+        fit_b = float(np.median([r["final_penalty_fitness"] for r in bs])) if bs else None
+        k = sum(success(r, n_reg) for r in rs)
+        lo, hi = wilson(k, len(rs))
+        n_viol = sum(r["n_viol_debris"] + r["n_viol_occupied"] for r in rs)
+        out.append([m, _f(med_r, 2), _f(med_b, 2), active, f"{k}/{len(rs)} [{lo:.2f}, {hi:.2f}]",
+                    f"{sum(success(r, n_reg) for r in bs)}/{len(bs)}" if bs else "—",
+                    _f(fit_r), _f(fit_b), _f(None if fit_b is None else fit_b - fit_r), n_viol,
+                    "—" if m == "penalty" else _verdict(n_viol == 0)])
+    t = md_table(["modo", "margen mín. mediano reducido (°)", "margen mín. mediano base (°)",
+                  f"restricción activa (< {P5_MARGIN_ACTIVE:g}° vs > {P5_MARGIN_BASE:g}°)", "éxito reducido [IC 95 %]",
+                  "éxito base", "aptitud mediana reducido", "aptitud mediana base", "caída de la mediana",
+                  "violaciones finales", "0 violaciones (repair/strict)"], out)
+    return t + "\n" + t_p7(red)
+
+
+def t_p6(inv: list[dict]) -> str:
+    """P6: ningún final válido toca Yucatán y ninguna aptitud supera el óptimo 0.788462 (§10), por modo."""
+    n_reg = len(region_ids(inv))
+    out = []
+    for m, rs in _groups(inv, "mode").items():
+        val = [r for r in rs if r["valid"]]
+        yuc0 = sum(r["cov_yucatan"] == 0.0 for r in val)
+        fit = [r["final_penalty_fitness"] for r in rs]
+        capped = sum(f <= P6_CAP + 1e-9 for f in fit)
+        k = sum(r["gap_opt"] is not None and r["gap_opt"] < P6_GAP for r in rs)
+        lo, hi = wilson(k, len(rs))
+        out.append([m, len(rs), f"{len(val)}/{len(rs)}", f"{yuc0}/{len(val)}", _f(max(fit), 6),
+                    f"{capped}/{len(rs)}", f"{k}/{len(rs)} [{lo:.2f}, {hi:.2f}]",
+                    f"{sum(success(r, n_reg) for r in rs)}/{len(rs)}",
+                    _verdict(yuc0 == len(val) and capped == len(rs))])
+    t = md_table(["modo", "ejecuciones", "válidas", "válidas con cov_yucatan = 0", "aptitud penalty máx.",
+                  f"≤ {P6_CAP:g}", f"brecha < {P6_GAP:g} [IC 95 %]", "éxito 6/6", "veredicto"], out)
+    return t + "\n" + t_p7(inv)
+
+
+def p11_expected(row: dict) -> str:
+    """Coherencia de una revalidación con lo esperado en §4.6 (P11). '—' si §4.6 no fija resultado."""
+    sc, zones = row["scenario"], (row.get("violated_zones") or "").split()
+    if sc == "prioridad_cambiada":
+        return _verdict(row["still_valid"] and row["fitness_after"] != row["fitness_before"])
+    if sc == "menos_sats":
+        return _verdict(not row["still_valid"] and "n_sats" in (row["reasons"] or ""))
+    if sc == "inviable":
+        return _verdict(not row["still_valid"] and "bloqueo_yucatan" in zones)
+    if sc == "footprint_chico":
+        return _verdict(row["still_valid"] and bool(row["lost_regions"]))
+    return _verdict(row["still_valid"] == (row["n_violations"] == 0))   # reducido: solo consistencia
+
+
+def t_p11(rv: list[dict]) -> str:
+    return md_table(
+        ["escenario nuevo", "still_valid", "razones", "zonas violadas", "aptitud antes", "aptitud después",
+         "perdidas", "ganadas", "coherente con §4.6"],
+        [[r["scenario"], _f(r["still_valid"]), r["reasons"] or "—", r.get("violated_zones") or "—",
+          _f(r["fitness_before"], 6), _f(r["fitness_after"], 6), r["lost_regions"] or "—",
+          r["gained_regions"] or "—", p11_expected(r)] for r in rv])
 
 
 def t_p8(rows_by_c: dict[str, list[dict]]) -> str:
@@ -448,19 +529,15 @@ def write_tables(out: Path) -> list[Path]:
         tables["regiones_cubiertas"] = t_regions(allm)
         tables["p8_modos"] = t_p8(allm)
     if red:
-        tables["p5_resumen"] = t_p7(red)
+        tables["p5_resumen"] = t_p5(red, base)
     if inv:
-        tables["p6_resumen"] = t_p7(inv)
+        tables["p6_resumen"] = t_p6(inv)
     if fp:
         tables["p9_footprint"] = t_p9(fp, load("curvas_footprint"))
     if pop:
         tables["p10_poblacion"] = t_p10(pop, load("curvas_poblacion"))
     if (runs / "reval.csv").exists():
-        rv = read_csv(runs / "reval.csv")
-        tables["p11_revalidacion"] = md_table(
-            ["escenario nuevo", "still_valid", "razones", "aptitud antes", "aptitud después", "perdidas", "ganadas"],
-            [[r["scenario"], _f(r["still_valid"]), r["reasons"] or "—", _f(r["fitness_before"], 6),
-              _f(r["fitness_after"], 6), r["lost_regions"] or "—", r["gained_regions"] or "—"] for r in rv])
+        tables["p11_revalidacion"] = t_p11(read_csv(runs / "reval.csv"))
     dest = out / "exp_tablas"
     dest.mkdir(parents=True, exist_ok=True)
     written = []
