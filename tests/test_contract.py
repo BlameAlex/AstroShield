@@ -1,11 +1,26 @@
 """Tests del contrato (docs/contratos.md): firmas, constantes, esquemas y archivos JSON."""
 import importlib
 import inspect
+import json
 import re
+from pathlib import Path
 
+import jsonschema
 import pytest
 
 from astroshield import CONTRACT_VERSION
+
+ROOT = Path(__file__).resolve().parents[1]
+ESCENARIOS = sorted((ROOT / "scenarios").glob("*.json"))
+MAJOR = CONTRACT_VERSION.split(".")[0]
+
+
+def _carga(ruta):
+    return json.loads(Path(ruta).read_text(encoding="utf-8"))
+
+
+def _esquema(nombre):
+    return _carga(ROOT / "schemas" / f"{nombre}.schema.json")
 
 
 # --- Firmas y constantes (§6, §8) -----------------------------------------
@@ -59,3 +74,44 @@ def test_constantes_del_contrato():
         "blx_alpha": 0.5, "p_swap": 0.5, "p_mut": 0.2, "sigma_mut": 5.0,
         "elitism": 2, "seed": None,
     }
+
+
+# --- Esquemas y escenarios (§4) -------------------------------------------
+
+def test_esquemas_bien_formados():
+    for nombre in ("scenario", "result"):
+        jsonschema.Draft202012Validator.check_schema(_esquema(nombre))
+    ga = importlib.import_module("astroshield.ga")
+    assert set(ga.DEFAULT_PARAMS) == set(_esquema("result")["properties"]["params"]["required"])
+
+
+def _coherencia(sc):
+    # Reglas que el esquema no puede expresar (§4.7).
+    pesos = importlib.import_module("astroshield.model").PRIORITY_WEIGHTS
+    assert sc["contract_version"].split(".")[0] == MAJOR
+    assert all(r["weight"] == pesos[r["priority"]] for r in sc["regions"])
+    ids = [r["id"] for r in sc["regions"]]
+    assert len(ids) == len(set(ids))
+    zonas = [z["id"] for z in sc["debris_zones"] + sc["occupied"]]
+    assert len(zonas) == len(set(zonas))
+
+
+@pytest.mark.parametrize("ruta", ESCENARIOS, ids=lambda p: p.stem)
+def test_escenario_valida_esquema(ruta):
+    jsonschema.validate(_carga(ruta), _esquema("scenario"))
+
+
+@pytest.mark.parametrize("ruta", ESCENARIOS, ids=lambda p: p.stem)
+def test_escenario_coherente(ruta):
+    sc = _carga(ruta)
+    assert sc["id"] == ruta.stem
+    _coherencia(sc)
+
+
+def test_escenario_base():
+    base = _carga(ROOT / "scenarios" / "base.json")
+    assert base["contract_version"] == CONTRACT_VERSION
+    assert base["n_sats"] == 8 and base["footprint_deg"] == 10.0
+    assert sum(r["weight"] for r in base["regions"]) == 13
+    assert base["fitness"] == {"k_penalty": 0.5, "redundancy_bonus": 0.05}
+    assert (len(base["regions"]), len(base["debris_zones"]), len(base["occupied"])) == (6, 3, 2)
