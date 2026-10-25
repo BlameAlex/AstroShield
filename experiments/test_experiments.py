@@ -226,6 +226,32 @@ def test_repair_strict_zero_final_violations_quick(quick_out):
                 assert r["n_viol_debris"] + r["n_viol_occupied"] == 0, (r["config"], r["seed"])
 
 
+def test_quick_tables_written(quick_out):
+    names = {p.stem for p in (quick_out / "exp_tablas").glob("*.md")}
+    assert {"p1_config", "p2_resumen", "p3_violaciones", "p4_violaciones", "p7_variacion",
+            "regiones_cubiertas", "p8_modos", "p9_footprint", "p10_poblacion"} <= names
+
+
+def test_plots_on_quick(quick_out):
+    import plots
+    pngs = {p.name for p in plots.make_all(quick_out)}
+    assert {"p1_mapa.png", "p2_curvas_base.png", "p7_boxplot.png", "p9_footprint.png"} <= pngs
+
+
+def test_report_check_detects_drift(tmp_path):
+    import report
+    tdir = tmp_path / "tablas"
+    tdir.mkdir()
+    (tdir / "demo.md").write_text("| a |\n|---|\n| 2 |\n", encoding="utf-8")
+    doc = tmp_path / "doc.md"
+    doc.write_text("# T\n<!-- tabla:demo -->\n| a |\n|---|\n| 1 |\n<!-- /tabla -->\nfin\n", encoding="utf-8")
+    args = ["--doc", str(doc), "--tables", str(tdir)]
+    assert report.main(["--check", *args]) == 1
+    assert report.main(args) == 0
+    assert report.main(["--check", *args]) == 0
+    assert "| 2 |" in doc.read_text(encoding="utf-8")
+
+
 def test_inviable_never_covers_yucatan(quick_out):
     path = quick_out / "exp_runs" / "inviable.csv"
     if not _hay_escenario("inviable"):
