@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "astroshield/scenario.schema.json",
+  "title": "AstroShield scenario",
+  "type": "object",
+  "required": ["contract_version", "id", "name", "n_sats", "footprint_deg", "regions", "debris_zones", "occupied", "fitness"],
+  "additionalProperties": false,
+  "properties": {
+    "contract_version": {"type": "string", "pattern": "^1\\.[0-9]+\\.[0-9]+$"},
+    "id": {"$ref": "#/$defs/ident"},
+    "name": {"type": "string"},
+    "description": {"type": "string"},
+    "n_sats": {"type": "integer", "minimum": 1},
+    "footprint_deg": {"type": "number", "exclusiveMinimum": 0, "maximum": 90},
+    "regions": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/region"}},
+    "debris_zones": {"type": "array", "items": {"$ref": "#/$defs/zone"}},
+    "occupied": {"type": "array", "items": {"$ref": "#/$defs/zone"}},
+    "fitness": {
+      "type": "object",
+      "required": ["k_penalty", "redundancy_bonus"],
+      "additionalProperties": false,
+      "properties": {
+        "k_penalty": {"type": "number", "minimum": 0},
+        "redundancy_bonus": {"type": "number", "minimum": 0}
+      }
+    }
+  },
+  "$defs": {
+    "ident": {"type": "string", "pattern": "^[a-z0-9_]+$"},
+    "lat": {"type": "number", "minimum": -90, "maximum": 90},
+    "lon": {"type": "number", "minimum": -180, "exclusiveMaximum": 180},
+    "region": {
+      "type": "object",
+      "required": ["id", "name", "lat", "lon", "priority", "weight", "radius_deg"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/ident"},
+        "name": {"type": "string"},
+        "lat": {"$ref": "#/$defs/lat"},
+        "lon": {"$ref": "#/$defs/lon"},
+        "priority": {"enum": ["Alta", "Media", "Normal"]},
+        "weight": {"enum": [1, 2, 3]},
+        "radius_deg": {"type": "number", "exclusiveMinimum": 0}
+      }
+    },
+    "zone": {
+      "type": "object",
+      "required": ["id", "name", "lat", "lon", "radius_deg"],
+      "additionalProperties": false,
+      "properties": {
+        "id": {"$ref": "#/$defs/ident"},
+        "name": {"type": "string"},
+        "lat": {"$ref": "#/$defs/lat"},
+        "lon": {"$ref": "#/$defs/lon"},
+        "radius_deg": {"type": "number", "exclusiveMinimum": 0}
+      }
+    }
+  }
+}

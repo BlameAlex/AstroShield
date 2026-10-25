@@ -1,0 +1,438 @@
+{
+  "contract_version": "1.0.1",
+  "id": "mock",
+  "notes": "Archivo sintético para desarrollo en paralelo (Ola 1). Coberturas, aptitudes y violaciones calculadas con las fórmulas del contrato; mean, worst, diversity y n_invalid son ilustrativos.",
+  "mode": "penalty",
+  "seed": 42,
+  "valid": true,
+  "scenario": {
+    "contract_version": "1.0.1",
+    "id": "base",
+    "name": "Escenario base del enunciado",
+    "description": "6 regiones, 3 zonas de desechos y 2 objetos ocupados del enunciado; 8 satélites; footprint 10°.",
+    "n_sats": 8,
+    "footprint_deg": 10.0,
+    "regions": [
+      {
+        "id": "yucatan",
+        "name": "Península de Yucatán, México",
+        "lat": 20.5,
+        "lon": -89.0,
+        "priority": "Alta",
+        "weight": 3,
+        "radius_deg": 2.7
+      },
+      {
+        "id": "amazonia",
+        "name": "Amazonía brasileña",
+        "lat": -3.5,
+        "lon": -62.0,
+        "priority": "Alta",
+        "weight": 3,
+        "radius_deg": 2.7
+      },
+      {
+        "id": "california",
+        "name": "California, Estados Unidos",
+        "lat": 36.8,
+        "lon": -119.4,
+        "priority": "Media",
+        "weight": 2,
+        "radius_deg": 2.7
+      },
+      {
+        "id": "sahel",
+        "name": "Región del Sahel, África",
+        "lat": 15.0,
+        "lon": 0.0,
+        "priority": "Media",
+        "weight": 2,
+        "radius_deg": 2.7
+      },
+      {
+        "id": "japon",
+        "name": "Japón",
+        "lat": 36.0,
+        "lon": 138.0,
+        "priority": "Media",
+        "weight": 2,
+        "radius_deg": 2.7
+      },
+      {
+        "id": "australia",
+        "name": "Interior de Australia",
+        "lat": -25.0,
+        "lon": 133.0,
+        "priority": "Normal",
+        "weight": 1,
+        "radius_deg": 2.7
+      }
+    ],
+    "debris_zones": [
+      {
+        "id": "atlantico_norte",
+        "name": "Atlántico Norte",
+        "lat": 45.0,
+        "lon": -35.0,
+        "radius_deg": 12.0
+      },
+      {
+        "id": "pacifico_sur",
+        "name": "Pacífico Sur",
+        "lat": -30.0,
+        "lon": -120.0,
+        "radius_deg": 10.0
+      },
+      {
+        "id": "polar_norte",
+        "name": "Región polar norte",
+        "lat": 78.0,
+        "lon": 30.0,
+        "radius_deg": 8.0
+      }
+    ],
+    "occupied": [
+      {
+        "id": "objeto_a",
+        "name": "Objeto A",
+        "lat": 10.0,
+        "lon": 45.0,
+        "radius_deg": 5.0
+      },
+      {
+        "id": "objeto_b",
+        "name": "Objeto B",
+        "lat": -15.0,
+        "lon": 110.0,
+        "radius_deg": 5.0
+      }
+    ],
+    "fitness": {
+      "k_penalty": 0.5,
+      "redundancy_bonus": 0.05
+    }
+  },
+  "params": {
+    "pop_size": 100,
+    "gens": 3,
+    "tournament_k": 3,
+    "p_crossover": 0.9,
+    "blx_alpha": 0.5,
+    "p_swap": 0.5,
+    "p_mut": 0.2,
+    "sigma_mut": 5.0,
+    "elitism": 2,
+    "seed": 42
+  },
+  "initial": {
+    "sats": [
+      [
+        44.0,
+        -30.0
+      ],
+      [
+        25.0,
+        -92.0
+      ],
+      [
+        -40.0,
+        -10.0
+      ],
+      [
+        5.0,
+        -150.0
+      ],
+      [
+        60.0,
+        90.0
+      ],
+      [
+        -20.0,
+        60.0
+      ],
+      [
+        30.0,
+        140.0
+      ],
+      [
+        -60.0,
+        170.0
+      ]
+    ],
+    "coverage": {
+      "yucatan": 1.0,
+      "amazonia": 0.0,
+      "california": 0.0,
+      "sahel": 0.0,
+      "japon": 1.0,
+      "australia": 0.0
+    },
+    "fitness": -0.115385,
+    "violations": [
+      {
+        "sat": 0,
+        "zone_id": "atlantico_norte",
+        "kind": "debris",
+        "distance_deg": 3.703097,
+        "radius_deg": 12.0,
+        "depth_deg": 8.296903
+      }
+    ]
+  },
+  "final": {
+    "sats": [
+      [
+        50.0,
+        -55.0
+      ],
+      [
+        22.0,
+        -90.0
+      ],
+      [
+        -5.0,
+        -61.0
+      ],
+      [
+        35.0,
+        -120.0
+      ],
+      [
+        -26.0,
+        134.0
+      ],
+      [
+        14.0,
+        2.0
+      ],
+      [
+        34.0,
+        138.5
+      ],
+      [
+        18.0,
+        -87.0
+      ]
+    ],
+    "coverage": {
+      "yucatan": 1.0,
+      "amazonia": 1.0,
+      "california": 1.0,
+      "sahel": 1.0,
+      "japon": 1.0,
+      "australia": 1.0
+    },
+    "fitness": 1.011538,
+    "violations": []
+  },
+  "history": [
+    {
+      "gen": 0,
+      "best": -0.115385,
+      "mean": -0.402311,
+      "worst": -0.984615,
+      "diversity": 87.412,
+      "n_invalid": 19,
+      "n_covered": 2,
+      "best_sats": [
+        [
+          44.0,
+          -30.0
+        ],
+        [
+          25.0,
+          -92.0
+        ],
+        [
+          -40.0,
+          -10.0
+        ],
+        [
+          5.0,
+          -150.0
+        ],
+        [
+          60.0,
+          90.0
+        ],
+        [
+          -20.0,
+          60.0
+        ],
+        [
+          30.0,
+          140.0
+        ],
+        [
+          -60.0,
+          170.0
+        ]
+      ],
+      "best_coverage": {
+        "yucatan": 1.0,
+        "amazonia": 0.0,
+        "california": 0.0,
+        "sahel": 0.0,
+        "japon": 1.0,
+        "australia": 0.0
+      },
+      "best_n_violations": 1
+    },
+    {
+      "gen": 1,
+      "best": 0.896063,
+      "mean": 0.311857,
+      "worst": -0.512308,
+      "diversity": 61.205,
+      "n_invalid": 7,
+      "n_covered": 4,
+      "best_sats": [
+        [
+          50.0,
+          -55.0
+        ],
+        [
+          25.0,
+          -92.0
+        ],
+        [
+          -10.0,
+          -60.0
+        ],
+        [
+          30.0,
+          -125.0
+        ],
+        [
+          60.0,
+          90.0
+        ],
+        [
+          10.0,
+          5.0
+        ],
+        [
+          30.0,
+          140.0
+        ],
+        [
+          -60.0,
+          170.0
+        ]
+      ],
+      "best_coverage": {
+        "yucatan": 1.0,
+        "amazonia": 1.0,
+        "california": 0.82441,
+        "sahel": 1.0,
+        "japon": 1.0,
+        "australia": 0.0
+      },
+      "best_n_violations": 0
+    },
+    {
+      "gen": 2,
+      "best": 1.002015,
+      "mean": 0.58842,
+      "worst": -0.038462,
+      "diversity": 44.917,
+      "n_invalid": 3,
+      "n_covered": 5,
+      "best_sats": [
+        [
+          50.0,
+          -55.0
+        ],
+        [
+          22.0,
+          -90.0
+        ],
+        [
+          -5.0,
+          -61.0
+        ],
+        [
+          35.0,
+          -120.0
+        ],
+        [
+          -30.0,
+          140.0
+        ],
+        [
+          14.0,
+          2.0
+        ],
+        [
+          34.0,
+          138.5
+        ],
+        [
+          18.0,
+          -87.0
+        ]
+      ],
+      "best_coverage": {
+        "yucatan": 1.0,
+        "amazonia": 1.0,
+        "california": 1.0,
+        "sahel": 1.0,
+        "japon": 1.0,
+        "australia": 0.876192
+      },
+      "best_n_violations": 0
+    },
+    {
+      "gen": 3,
+      "best": 1.011538,
+      "mean": 0.741006,
+      "worst": 0.115385,
+      "diversity": 36.53,
+      "n_invalid": 1,
+      "n_covered": 6,
+      "best_sats": [
+        [
+          50.0,
+          -55.0
+        ],
+        [
+          22.0,
+          -90.0
+        ],
+        [
+          -5.0,
+          -61.0
+        ],
+        [
+          35.0,
+          -120.0
+        ],
+        [
+          -26.0,
+          134.0
+        ],
+        [
+          14.0,
+          2.0
+        ],
+        [
+          34.0,
+          138.5
+        ],
+        [
+          18.0,
+          -87.0
+        ]
+      ],
+      "best_coverage": {
+        "yucatan": 1.0,
+        "amazonia": 1.0,
+        "california": 1.0,
+        "sahel": 1.0,
+        "japon": 1.0,
+        "australia": 1.0
+      },
+      "best_n_violations": 0
+    }
+  ]
+}
