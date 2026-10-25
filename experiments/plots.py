@@ -109,6 +109,59 @@ def p7_box(out: Path, dest: Path) -> None:
     plt.close(fig)
 
 
+def p5_box(out: Path, dest: Path) -> None:
+    red = _rows(out, "reducido")
+    if not red:
+        return
+    g = {**analysis._groups(_rows(out, "base")), **analysis._groups(red)}
+    fig, ax = plt.subplots(figsize=(8, 4))
+    _box(ax, {k.replace("_", "\n", 1): _arr(v, "final_penalty_fitness") for k, v in g.items()},
+         [MODE_COLOR.get(_mode_of(k), NEUTRAL) for k in g])
+    ax.axhline(analysis.ORACLES["base"], color=INK, lw=1, ls=":", label="óptimo base 1.023077")
+    ax.axhline(1.0, color=NEUTRAL, lw=1, ls="--", label="umbral 6/6 (1.0)")
+    ax.set(title="P5 · Aptitud final (penalty): base vs reducido, 30 semillas", ylabel="aptitud final")
+    ax.legend(loc="lower left")
+    fig.savefig(dest / "p5_boxplot.png", **SAVE)
+    plt.close(fig)
+
+
+def p5_margin(out: Path, dest: Path) -> None:
+    red = _rows(out, "reducido")
+    if not red:
+        return
+    base = _rows(out, "base")
+    vals = np.concatenate([_arr(red, "min_margin_deg"), _arr(base, "min_margin_deg")])
+    bins = np.linspace(np.nanmin(vals), np.nanmax(vals), 40)
+    fig, ax = plt.subplots(figsize=(8, 4))
+    if base:
+        ax.hist(_arr(base, "min_margin_deg"), bins=bins, color=NEUTRAL, alpha=0.5, label="base (3 modos)")
+    for m, rs in analysis._groups(red, "mode").items():
+        ax.hist(_arr(rs, "min_margin_deg"), bins=bins, histtype="step", lw=2, color=MODE_COLOR.get(m, NEUTRAL),
+                label=f"reducido {m}")
+    ax.axvline(0, color=INK, lw=1, label="borde de zona (0°)")
+    ax.axvline(analysis.P5_MARGIN_ACTIVE, color=INK, lw=1, ls=":", label=f"{analysis.P5_MARGIN_ACTIVE:g}° (activa)")
+    ax.set(title="P5 · Margen mínimo satélite–zona al final (min_margin_deg)", xlabel="margen mínimo (°)",
+           ylabel="ejecuciones")
+    ax.legend(loc="upper center")
+    fig.savefig(dest / "p5_margen.png", **SAVE)
+    plt.close(fig)
+
+
+def p6_box(out: Path, dest: Path) -> None:
+    inv = _rows(out, "inviable")
+    if not inv:
+        return
+    g = analysis._groups(inv)
+    fig, ax = plt.subplots(figsize=(6, 4))
+    _box(ax, {k: _arr(v, "final_penalty_fitness") for k, v in g.items()},
+         [MODE_COLOR.get(_mode_of(k), NEUTRAL) for k in g])
+    ax.axhline(analysis.P6_CAP, color=INK, lw=1, ls=":", label=f"óptimo inviable {analysis.P6_CAP:g} (§10)")
+    ax.set(title="P6 · Aptitud final (penalty) en inviable, 30 semillas", ylabel="aptitud final")
+    ax.legend(loc="lower left")
+    fig.savefig(dest / "p6_boxplot.png", **SAVE)
+    plt.close(fig)
+
+
 def _cap(lat, lon, r, n=180):
     """Contorno de un casquete esférico (fórmula de destino), con cortes en el salto ±180."""
     la, lo = np.radians(lat), np.radians(lon)
@@ -227,6 +280,6 @@ def make_all(out: Path) -> list[Path]:
     out = Path(out)
     dest = out / "exp_figuras"
     dest.mkdir(parents=True, exist_ok=True)
-    for fn in (p1_map, p2_curves, p3_map, p7_box, p9_footprint, p10_pop):
+    for fn in (p1_map, p2_curves, p3_map, p5_box, p5_margin, p6_box, p7_box, p9_footprint, p10_pop):
         fn(out, dest)
     return sorted(dest.glob("*.png"))
