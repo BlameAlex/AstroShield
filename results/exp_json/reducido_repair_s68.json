@@ -1,5 +1,5 @@
 {
-  "contract_version": "1.0.1",
+  "contract_version": "1.0.2",
   "id": "reducido_repair_s68",
   "mode": "repair",
   "seed": 68,
@@ -9,7 +9,7 @@
     "numpy": "2.5.4"
   },
   "scenario": {
-    "contract_version": "1.0.1",
+    "contract_version": "1.0.2",
     "id": "reducido",
     "name": "Espacio reducido",
     "description": "Radios de las 5 zonas originales ×1.5 y zona nueva bloqueo_australia_este que corta el casquete útil de Australia; alimenta la prueba de espacio reducido del Entregable 3.",

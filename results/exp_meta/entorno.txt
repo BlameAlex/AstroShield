@@ -17,8 +17,8 @@ matplotlib: 3.11.2
 platform: Linux-7.2.10-200.fc44.x86_64-x86_64-with-glibc2.43
 cpu_count: 16
 jobs: 16
-contract_version: 1.0.1
-git_commit: 4cda00ad9e8a4ccf950f16ebac6d7e6f7bf0b6ab
-git_status_clean: False
+contract_version: 1.0.2
+git_commit: 4245320bbd7c9b4acf5654e17a4b1aef1883cf38
+git_status_clean: True
 command: python experiments/run_experiments.py --only reducido,inviable --jobs 16
 missing_scenarios: 

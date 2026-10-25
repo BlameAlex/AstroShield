@@ -1,5 +1,5 @@
 {
-  "contract_version": "1.0.1",
+  "contract_version": "1.0.2",
   "id": "inviable_repair_s66",
   "mode": "repair",
   "seed": 66,
@@ -9,7 +9,7 @@
     "numpy": "2.5.4"
   },
   "scenario": {
-    "contract_version": "1.0.1",
+    "contract_version": "1.0.2",
     "id": "inviable",
     "name": "Condición inviable",
     "description": "Zona nueva bloqueo_yucatan de 13° centrada en Yucatán (13 > F + r = 12.7): cubrir Yucatán es imposible sin violar; alimenta la prueba de condición inviable del Entregable 3.",

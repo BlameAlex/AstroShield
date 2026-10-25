@@ -1,5 +1,5 @@
 {
-  "contract_version": "1.0.1",
+  "contract_version": "1.0.2",
   "result_id": "base_repair_s42",
   "old_scenario_id": "base",
   "new_scenario_id": "prioridad_cambiada",

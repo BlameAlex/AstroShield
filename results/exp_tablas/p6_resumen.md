@@ -1,8 +1,8 @@
-| modo | ejecuciones | válidas | válidas con cov_yucatan = 0 | aptitud penalty máx. | ≤ 0.788462 | brecha < 0.01 [IC 95 %] | éxito 6/6 | veredicto |
+| modo | ejecuciones | válidas | válidas con cov_yucatan = 0 | aptitud penalty máx. | ≤ 0.796154 | brecha < 0.01 [IC 95 %] | éxito 6/6 | veredicto |
 |---|---|---|---|---|---|---|---|---|
-| penalty | 30 | 30/30 | 30/30 | 0.796154 | 16/30 | 29/30 [0.83, 0.99] | 0/30 | FALLA |
-| repair | 30 | 30/30 | 30/30 | 0.796154 | 7/30 | 29/30 [0.83, 0.99] | 0/30 | FALLA |
-| strict | 30 | 30/30 | 30/30 | 0.796154 | 20/30 | 29/30 [0.83, 0.99] | 0/30 | FALLA |
+| penalty | 30 | 30/30 | 30/30 | 0.796154 | 30/30 | 22/30 [0.56, 0.86] | 0/30 | PASA |
+| repair | 30 | 30/30 | 30/30 | 0.796154 | 30/30 | 29/30 [0.83, 0.99] | 0/30 | PASA |
+| strict | 30 | 30/30 | 30/30 | 0.796154 | 30/30 | 21/30 [0.52, 0.83] | 0/30 | PASA |
 
 | config | n | media | sd | mediana | IQR | mín | máx | éxito k/n [IC Wilson 95 %] |
 |---|---|---|---|---|---|---|---|---|
@@ -12,6 +12,6 @@
 
 | config | alcanzan el óptimo (brecha < 1e-6) | brecha mediana | brecha máx. |
 |---|---|---|---|
-| inviable_penalty | 8/30 | 0.000000 | 0.011539 |
-| inviable_repair | 6/30 | -0.003846 | 0.015385 |
-| inviable_strict | 11/30 | 0.000000 | 0.011539 |
+| inviable_penalty | 5/30 | 0.007692 | 0.019231 |
+| inviable_repair | 10/30 | 0.003846 | 0.023077 |
+| inviable_strict | 4/30 | 0.007692 | 0.019231 |
