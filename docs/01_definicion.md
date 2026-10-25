@@ -120,7 +120,64 @@ Nota numérica: la implementación aplica la fórmula tal cual (`model.coverage_
 
 ## 3. Calidad de una configuración y prioridades
 
-_Pendiente._
+### 3.1 Pesos de prioridad
+
+Las prioridades se traducen en pesos lineales: `PRIORITY_WEIGHTS = {"Alta": 3, "Media": 2, "Normal": 1}` (constante en `model.py`). Cada región del escenario guarda su `priority` y su `weight`, y `load_scenario` rechaza el escenario si no coinciden. En la base:
+
+```
+Σw = 3 + 3 + 2 + 2 + 2 + 1 = 13
+```
+
+Esta escala respeta el orden del enunciado y es fácil de leer: una región Alta vale lo mismo que una Media más una Normal. Las prioridades entran en la aptitud de dos maneras: deciden qué región conviene cubrir cuando no se pueden cubrir todas (§8, `menos_sats` e `inviable`) y a qué regiones conviene darles redundancia.
+
+### 3.2 Aptitud
+
+Notación: d_iρ es la distancia del satélite i al centro de la región ρ; c_ρ es la cobertura de §2.4; n_full_ρ es el número de satélites con c_iρ = 1; β = `redundancy_bonus` y K = `k_penalty` vienen del bloque `fitness` del escenario.
+
+```
+cov     = Σ_ρ w_ρ · c_ρ / Σ_ρ w_ρ                     ∈ [0, 1]
+red     = Σ_ρ w_ρ · [n_full_ρ ≥ 2] / Σ_ρ w_ρ          ∈ [0, 1]
+base    = cov + β · red                                ∈ [0, 1 + β]
+penalty = base − K · n_viol                            (n_viol = número de violaciones, §4)
+strict  = base  si n_viol = 0;   −∞  si n_viol > 0
+```
+
+Siempre se **maximiza**. `model.fitness(sats, sc, mode)` devuelve `penalty` o `strict`, según el modo (§4.3).
+
+- **cov** es la cobertura ponderada por prioridad. Es el término principal.
+- **red** premia tener al menos dos satélites que cubran completa una misma región (tolerancia a fallos), también ponderado por prioridad.
+
+### 3.3 Por qué β = 0.05 y K = 0.5
+
+Los dos valores están en el escenario, no en el código, porque forman parte de la definición del problema. Se eligieron para que dos desigualdades se cumplan con holgura:
+
+- **β = 0.05 < min(w)/Σw = 1/13 = 0.077.** El bono de redundancia nunca compensa dejar sin cubrir ni siquiera la región de menor prioridad. Primero se cubre todo lo que se pueda, después se duplica.
+- **K = 0.5 > max(w)/Σw + β = 3/13 + 0.05 = 0.281.** Con F = 10° un satélite no cubre dos regiones (§2.2), así que lo máximo que una violación puede ganar es una región Alta con su redundancia. Ninguna violación "se paga" con la cobertura que consigue. Al mismo tiempo, K es finito, y en modo penalty el algoritmo puede atravesar zonas inválidas mientras busca.
+
+Las dos desigualdades se siguen cumpliendo en todos los escenarios derivados (en `prioridad_cambiada`, Σw = 14: 0.05 < 1/14 = 0.071 y 0.5 > 3/14 + 0.05 = 0.264).
+
+### 3.4 Óptimo teórico del escenario base
+
+Con 8 satélites, la mejor configuración pone uno sobre cada región (cov = 1) y dedica los 2 sobrantes a las dos regiones de mayor peso, Yucatán y Amazonía:
+
+```
+óptimo = 1 + 0.05 · (3 + 3)/13 = 1.023077
+```
+
+No se puede superar: cov ≤ 1, cada satélite cubre completa a lo sumo una región, y 2 satélites extra dan redundancia, como mucho, a 2 regiones. Comprobado con `model.fitness` sobre esa configuración (los satélites sobre los centros de las regiones): 1.023077, sin violaciones.
+
+### 3.5 Ejemplo numérico
+
+Las cuatro generaciones de `results/mock.json`, recalculadas con `model.fitness` sobre el escenario base (Σw = 13):
+
+| Gen | Situación del mejor individuo | Aptitud |
+|---|---|---|
+| 0 | Yucatán y Japón cubiertas; un satélite dentro de `atlantico_norte` | (3 + 2)/13 − 0.5·1 = **−0.115385** |
+| 1 | 5 cubiertas, California parcial (0.82441), Australia en 0; válido | (3 + 3 + 2·0.82441 + 2 + 2)/13 = **0.896063** |
+| 2 | 5 cubiertas, Australia parcial (0.876192), redundancia en Yucatán | (12 + 0.876192)/13 + 0.05·3/13 = **1.002015** |
+| 3 | 6/6 cubiertas, redundancia solo en Yucatán | 13/13 + 0.05·3/13 = **1.011538** |
+
+La generación 3 ya cumple el criterio de "suficientemente buena" (§7), pero queda 0.011538 por debajo del óptimo porque Amazonía no tiene redundancia.
 
 ## 4. Condiciones de invalidez
 
