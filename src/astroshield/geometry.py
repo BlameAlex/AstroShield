@@ -35,3 +35,52 @@ def central_angle(lat1: ArrayLike, lon1: ArrayLike, lat2: ArrayLike, lon2: Array
     h = np.sin((p2 - p1) / 2) ** 2 + np.cos(p1) * np.cos(p2) * np.sin((l2 - l1) / 2) ** 2
     # asarray: con entradas escalares los ufuncs devuelven np.float64 y el contrato pide ndarray.
     return np.asarray(np.degrees(2.0 * np.arcsin(np.sqrt(np.clip(h, 0.0, 1.0)))))
+
+
+def latlon_to_xyz(lat: ArrayLike, lon: ArrayLike, r: float = 1.0) -> np.ndarray:
+    """Convierte a cartesianas con forma (..., 3).
+
+    x = r·cos(lat)·cos(lon), y = r·cos(lat)·sin(lon), z = r·sin(lat).
+    Polo norte → (0, 0, r); (0, 0) → (r, 0, 0).
+    """
+    p = np.radians(np.asarray(lat, dtype=float))
+    l = np.radians(np.asarray(lon, dtype=float))
+    # z solo depende de lat: broadcast_arrays iguala las formas antes de apilar.
+    x, y, z = np.broadcast_arrays(np.cos(p) * np.cos(l), np.cos(p) * np.sin(l), np.sin(p))
+    return r * np.stack((x, y, z), axis=-1)
+
+
+def sample_sphere(n: int, rng: np.random.Generator) -> np.ndarray:
+    """n puntos uniformes sobre la esfera, con forma (n, 2) [lat, lon].
+
+    lat = degrees(arcsin(rng.uniform(-1, 1, n))); después lon = rng.uniform(-180, 180, n).
+    El orden de consumo del RNG es fijo: primero las n latitudes, luego las n longitudes.
+    Pre: n >= 0. Post: lat en [-90, 90], lon en [-180, 180).
+    """
+    lat = np.degrees(np.arcsin(rng.uniform(-1.0, 1.0, n)))
+    lon = rng.uniform(-180.0, 180.0, n)
+    return np.column_stack((lat, lon))
+
+
+def normalize_latlon(sats: np.ndarray) -> np.ndarray:
+    """Devuelve una copia normalizada de un array (..., 2).
+
+    Si lat > 90 o lat < -90, refleja sobre el polo (lat → ±180 − lat, lon → lon + 180)
+    hasta que quede en rango; después aplica wrap_lon solo a las longitudes fuera de [-180, 180).
+    Los valores que ya estaban en rango (lat y lon) se conservan bit a bit: si x ya está
+    normalizado, normalize_latlon(x) es igual a x.
+    No muta la entrada.
+    """
+    out = np.array(sats, dtype=float)
+    lat, lon = out[..., 0], out[..., 1]
+    m = np.abs(lat) > 90.0
+    if m.any():
+        # Forma cerrada de las reflexiones sucesivas: t es la posición sobre el meridiano
+        # completo (periodo 360°); t > 180 equivale a un número impar de cruces de polo.
+        t = np.mod(lat[m] + 90.0, 360.0)
+        flip = t > 180.0
+        lat[m] = np.where(flip, 270.0 - t, t - 90.0)
+        lon[m] += np.where(flip, 180.0, 0.0)
+    fuera = (lon < -180.0) | (lon >= 180.0)
+    lon[fuera] = wrap_lon(lon[fuera])
+    return out
