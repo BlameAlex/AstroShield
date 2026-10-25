@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from astroshield import model
+from astroshield import geometry, model
 
 ROOT = Path(__file__).resolve().parents[1]
 BASE = ROOT / "scenarios" / "base.json"
@@ -65,6 +65,18 @@ def test_coverage_bordes_lineales(sc):
     assert c[0, 0] == pytest.approx(1.0, abs=1e-9)
     assert c[0, 1] == pytest.approx(0.0, abs=1e-9)
     assert c[0, 2] == pytest.approx(0.5, abs=1e-9)
+
+
+def test_coverage_umbral_explicito_en_borde(sc):
+    # Contrato 1.0.2 (§5.1): si d <= F − r la región cuenta como cubierta (== 1.0). En este caso
+    # d == F − r y la fórmula sin umbral da 0.9999999999999999 por redondeo.
+    sat = np.array([[23.1, -89.0]])
+    borde = copy.deepcopy(sc)
+    borde["footprint_deg"] = 5.300000000000001
+    d = float(geometry.central_angle(23.1, -89.0, 20.5, -89.0))
+    assert d <= borde["footprint_deg"] - 2.7
+    assert model.coverage_matrix(sat, borde)[0, 0] == 1.0
+    assert model.coverage(sat, borde)["yucatan"] == 1.0
 
 
 def test_optimo_base_es_oraculo(sc):

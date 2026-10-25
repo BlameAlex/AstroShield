@@ -1,12 +1,12 @@
 {
-  "contract_version": "1.0.1",
+  "contract_version": "1.0.2",
   "id": "mock",
   "notes": "Archivo sintético para desarrollo en paralelo (Ola 1). Coberturas, aptitudes y violaciones calculadas con las fórmulas del contrato; mean, worst, diversity y n_invalid son ilustrativos.",
   "mode": "penalty",
   "seed": 42,
   "valid": true,
   "scenario": {
-    "contract_version": "1.0.1",
+    "contract_version": "1.0.2",
     "id": "base",
     "name": "Escenario base del enunciado",
     "description": "6 regiones, 3 zonas de desechos y 2 objetos ocupados del enunciado; 8 satélites; footprint 10°.",

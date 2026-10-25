@@ -2,7 +2,7 @@
 
 Este documento recoge las decisiones con las que el escenario de AstroShield (`docs/enunciado.md`) se convierte en un problema computacional que un algoritmo evolutivo puede resolver. Responde a las siete preguntas del Entregable 1 y añade los supuestos del modelo, los escenarios derivados con sus óptimos teóricos y las limitaciones conocidas.
 
-Las fórmulas, nombres y valores coinciden con `docs/contratos.md` (v1.0.1) y con el código de `src/astroshield/`. Todas las cifras se recalcularon con `astroshield.geometry` y `astroshield.model` (Python 3.14.8, numpy 2.5.4). Donde el cálculo no coincide con el contrato, se indica de forma explícita.
+Las fórmulas, nombres y valores coinciden con `docs/contratos.md` (v1.0.2) y con el código de `src/astroshield/`. Todas las cifras se recalcularon con `astroshield.geometry` y `astroshield.model` (Python 3.14.8, numpy 2.5.4). Donde el cálculo no coincide con el contrato, se indica de forma explícita.
 
 ## 0. Resumen y supuestos del modelo
 
@@ -116,7 +116,7 @@ La cobertura de una región la aporta su mejor satélite. No se suman áreas: es
 
 Una región está **cubierta** si y solo si c_ρ == 1.0. Si 0 < c_ρ < 1 está *parcial*, y si c_ρ = 0, *no cubierta*. La función `model.coverage` devuelve `{region_id: c_ρ}`, y el resultado de cada ejecución guarda esas coberturas para la configuración inicial, la final y el mejor individuo de cada generación (`best_coverage`).
 
-Nota numérica: la implementación aplica la fórmula tal cual (`model.coverage_matrix`). En el borde exacto d = F − r, el redondeo en coma flotante da 0.9999999999999997 en vez de 1.0, así que un satélite situado justo en ese borde cuenta como cobertura parcial. En la práctica, cubrir una región exige quedar a menos de 7.3° de su centro; con el satélite sobre el centro, c = 1.0 exacto. Ver la §9.
+Nota numérica: en el borde exacto d = F − r, la fórmula evaluada tal cual da 0.9999999999999997 por redondeo en coma flotante. Desde el contrato 1.0.2, `model.coverage_matrix` usa un umbral explícito (c = 1 si d ≤ F − r), así que un satélite justo en ese borde cuenta como cobertura completa. Ver la §9.
 
 ## 3. Calidad de una configuración y prioridades
 
@@ -359,7 +359,7 @@ Los escenarios derivados sirven para las pruebas de condiciones límite y de cam
 
 - Las 6 regiones (id, nombre, centro y radio) quedan intactas, para poder comparar.
 - Las 3 zonas de desechos y los 2 objetos originales no se borran ni se mueven; solo se agrandan o se añaden zonas nuevas.
-- `fitness` (K = 0.5 y β = 0.05) y `contract_version` = "1.0.1" no cambian.
+- `fitness` (K = 0.5 y β = 0.05) y `contract_version` = "1.0.2" no cambian.
 
 Todos validan contra `schemas/scenario.schema.json` y se cargan con `model.load_scenario`.
 
@@ -403,7 +403,7 @@ Cada óptimo se comprobó evaluando con `model.fitness` una configuración expl�
 
 En modo penalty tampoco compensa violar: cubrir Yucatán dentro de la zona gana como mucho 3/13 + 0.05·3/13 = 0.242 y cuesta K = 0.5.
 
-> **Discrepancia con el contrato.** §4.6 y §10 de `docs/contratos.md` dan 0.788462 = 10/13 + 0.05·(3 + 2)/13, con redundancia solo en Amazonía y una Media. Ese cálculo cuenta 2 satélites sobrantes, pero en `inviable` sobran 3 (8 − 5). La configuración del contrato vale 0.788462 con `model.fitness`; la de arriba, válida y sin violaciones, vale **0.796154**. Este documento usa 0.796154. La corrección del contrato y de los consumidores de ese oráculo queda propuesta al coordinador.
+> **Corrección del contrato (1.0.2).** Hasta la versión 1.0.1, §4.6 y §10 de `docs/contratos.md` daban 0.788462 = 10/13 + 0.05·(3 + 2)/13, con redundancia solo en Amazonía y una Media. Ese cálculo contaba 2 satélites sobrantes, pero en `inviable` sobran 3 (8 − 5). La configuración de arriba, válida y sin violaciones, vale **0.796154** con `model.fitness`. El contrato 1.0.2 adopta ese valor.
 
 ### 8.4 `prioridad_cambiada.json` — prioridades cambiadas
 
@@ -470,7 +470,7 @@ La revalidación sistemática de soluciones reales y la re-optimización sembrad
 
 1. **Sin mecánica orbital.** Un satélite es un punto fijo con un casquete de radio constante. No hay altitud, movimiento, tiempo de revisita ni interferencias entre satélites. Dos satélites pueden incluso ocupar el mismo punto: las "posiciones ocupadas" del enunciado son objetos externos, no los propios satélites. Es el modelo educativo que permite el enunciado (§1.1).
 2. **La cobertura parcial es una aproximación.** La fórmula lineal de §2.3 no calcula el área solapada real entre dos casquetes, y la combinación por `max` no suma las contribuciones parciales de varios satélites. Con F = 10° el efecto práctico es nulo (§2.4), pero la cifra de cobertura parcial es indicativa, no física.
-3. **Borde numérico de la cobertura completa.** La implementación evalúa la fórmula tal cual. En d = F − r exacto, el redondeo da 0.9999999999999997 y la región cuenta como parcial, aunque el contrato (§5.1) diga "completa si d ≤ F − r". Solo afecta a posiciones justo en el borde. La corrección (un umbral explícito) corresponde al dueño de `model.py`.
+3. **Borde numérico de la cobertura completa.** Evaluada tal cual, la fórmula da 0.9999999999999997 en d = F − r exacto. Desde el contrato 1.0.2, `model.coverage_matrix` aplica el umbral explícito de §5.1 (c = 1 si d ≤ F − r), así que el borde cuenta como cobertura completa. Queda la sensibilidad propia de la coma flotante: un satélite a 7.3° "medidos a mano" puede quedar a 7.300000000000001° según la dirección.
 4. **La penalización cuenta violaciones, no su profundidad.** En modo penalty, un satélite que apenas roza una zona cuesta lo mismo que uno metido en su centro, y la aptitud no da pendiente para salir de la zona. El modo repair cubre ese hueco moviendo el satélite de forma explícita.
 5. **El cruce es por índice sobre un conjunto no ordenado.** Dos padres buenos con sus satélites en distinto orden (por ejemplo, el satélite 0 sobre Yucatán en uno y sobre Japón en otro) pueden producir con BLX hijos a medio camino entre las dos regiones. El intercambio de satélites completos (`p_swap` = 0.5) y el elitismo atenúan el problema, pero no lo eliminan. Una alternativa sería alinear los satélites antes de cruzar, con el costo de más complejidad.
 6. **Las restricciones no están activas en el óptimo base** (§4.4). El escenario base solo prueba que las restricciones se respetan durante la búsqueda. Para ver su efecto sobre la solución hacen falta `reducido` e `inviable`.

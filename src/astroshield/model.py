@@ -104,7 +104,10 @@ def coverage_matrix(sats: np.ndarray, sc: dict) -> np.ndarray:
     reg_rads = np.array([r["radius_deg"] for r in regions], dtype=float)[:, None]
 
     dists = geometry.central_angle(sats_arr[None, :, 0], sats_arr[None, :, 1], reg_lats, reg_lons)
-    return np.clip((float(sc["footprint_deg"]) + reg_rads - dists) / (2.0 * reg_rads), 0.0, 1.0)
+    foot = float(sc["footprint_deg"])
+    # Umbral explícito (§5.1): en d = F − r la fórmula da 0.9999999999999997 por redondeo.
+    partial = np.clip((foot + reg_rads - dists) / (2.0 * reg_rads), 0.0, 1.0)
+    return np.where(dists <= foot - reg_rads, 1.0, partial)
 
 
 def coverage(sats: np.ndarray, sc: dict) -> dict[str, float]:

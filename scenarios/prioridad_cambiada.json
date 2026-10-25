@@ -1,5 +1,5 @@
 {
-  "contract_version": "1.0.1",
+  "contract_version": "1.0.2",
   "id": "prioridad_cambiada",
   "name": "Prioridades cambiadas",
   "description": "Australia pasa a Alta (3) y California a Normal (1), sin otros cambios; alimenta la revalidación ante cambio de condiciones del Entregable 3.",

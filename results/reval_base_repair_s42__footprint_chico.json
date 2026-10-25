@@ -1,0 +1,35 @@
+{
+  "contract_version": "1.0.1",
+  "result_id": "base_repair_s42",
+  "old_scenario_id": "base",
+  "new_scenario_id": "footprint_chico",
+  "still_valid": true,
+  "reasons": [],
+  "violations": [],
+  "fitness_before": 1.0076923076923077,
+  "fitness_after": 0.5838354715077299,
+  "coverage_before": {
+    "yucatan": 1.0,
+    "amazonia": 1.0,
+    "california": 1.0,
+    "sahel": 1.0,
+    "japon": 1.0,
+    "australia": 1.0
+  },
+  "coverage_after": {
+    "yucatan": 0.7860997965873647,
+    "amazonia": 1.0,
+    "california": 0.16917164595089274,
+    "sahel": 0.28088913982135033,
+    "japon": 0.41691317871421296,
+    "australia": 0.4976138108654818
+  },
+  "lost_regions": [
+    "yucatan",
+    "california",
+    "sahel",
+    "japon",
+    "australia"
+  ],
+  "gained_regions": []
+}

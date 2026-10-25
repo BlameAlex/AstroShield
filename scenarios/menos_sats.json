@@ -1,5 +1,5 @@
 {
-  "contract_version": "1.0.1",
+  "contract_version": "1.0.2",
   "id": "menos_sats",
   "name": "Cuatro satélites",
   "description": "Solo 4 satélites para 6 regiones: hay que elegir qué cubrir según la prioridad; alimenta la revalidación (n_sats distinto) y la prueba de condición difícil del Entregable 3.",
