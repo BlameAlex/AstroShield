@@ -20,11 +20,103 @@ Supuestos del modelo:
 
 ## 1. Representación de una configuración
 
-_Pendiente._
+**Genoma.** Una configuración es un arreglo `numpy` de `float64` con forma `(n_sats, 2)`. La fila `i` es `[lat_i, lon_i]` en grados: el punto subsatelital del satélite `i`. En el escenario base `n_sats = 8`. El número de satélites lo fija el escenario, no el código (en `menos_sats.json` vale 4).
+
+Ejemplo (configuración final de `results/mock.json`):
+
+```
+[[50.0, -55.0], [22.0, -90.0], [-5.0, -61.0], [35.0, -120.0],
+ [-26.0, 134.0], [14.0, 2.0], [34.0, 138.5], [18.0, -87.0]]
+```
+
+**Qué contiene y qué no.** Solo posiciones: 16 números reales. La cobertura, las violaciones y la aptitud se *derivan* de esas posiciones con `model.coverage`, `model.violations` y `model.fitness`. No se guardan en el genoma, así que no pueden quedar desincronizadas con él.
+
+**Rangos y normalización.** lat ∈ [−90, 90] y lon ∈ [−180, 180). Después de cada cruce o mutación, `geometry.normalize_latlon` hace dos cosas:
+
+- Si la latitud se sale de rango, refleja el punto sobre el polo: lat → ±180 − lat y lon → lon + 180.
+- Envuelve la longitud con `wrap_lon`, de modo que 180 pasa a −180.
+
+Los valores que ya están en rango se conservan bit a bit. Toda función pública que devuelve un genoma lo devuelve normalizado, como un arreglo nuevo, sin mutar la entrada.
+
+**Conjunto no ordenado.** Dos genomas que solo difieren en el orden de sus filas representan la misma constelación: los satélites son intercambiables. El algoritmo evolutivo, sin embargo, cruza por índice, satélite `i` con satélite `i`. Es una simplificación deliberada; su costo se discute en la §9.
+
+**Número de filas.** Un genoma con un número de filas distinto de `sc["n_sats"]` hace inválida la solución (§4).
+
+**Por qué esta representación.** Es la codificación directa del problema: no hay que decodificar nada, los operadores continuos (BLX-α y mutación gaussiana, §5) actúan sobre ella sin más, y su tamaño es mínimo. Se descartaron dos alternativas:
+
+- **Una rejilla discreta de posiciones.** Pierde precisión justo donde importa, porque cubrir una región completa exige acercarse a menos de 7.3° de su centro.
+- **Coordenadas cartesianas (x, y, z).** Obligan a mantener la restricción de norma 1 después de cada operador.
 
 ## 2. Qué significa que una región esté cubierta
 
-_Pendiente._
+### 2.1 Radio de una región
+
+El enunciado fija un radio de observación de 300 km alrededor del centro de cada región. Sobre la esfera:
+
+```
+r = 300 km / 6371 km = 0.047088 rad = 2.698° ≈ 2.7°
+```
+
+Cada región es un casquete de radio angular r = 2.7° (`radius_deg` en el escenario).
+
+### 2.2 Footprint de un satélite: F = 10°
+
+Cada satélite observa un casquete de radio angular F = `footprint_deg` = 10°, unos 1112 km sobre la superficie. Sea d la distancia angular entre el satélite y el centro de una región:
+
+- La región queda **completa** dentro del casquete si d ≤ F − r = 7.3°.
+- **No se toca** si d ≥ F + r = 12.7°.
+
+El valor de 10° se eligió mirando las distancias entre los centros de las regiones (en grados, con `geometry.central_angle`):
+
+| | Amazonía | California | Sahel | Japón | Australia |
+|---|---|---|---|---|---|
+| Yucatán | 35.74 | **31.05** | 83.89 | 108.12 | 141.16 |
+| Amazonía | | 66.79 | 64.10 | 142.63 | 147.99 |
+| California | | | 102.98 | 77.83 | 118.20 |
+| Sahel | | | | 115.38 | 134.94 |
+| Japón | | | | | 61.18 |
+
+- La separación mínima es la de Yucatán y California: 31.05°.
+- Un satélite cubre completas dos regiones solo si su separación es ≤ 2(F − r) = 14.6°.
+- Un satélite toca dos regiones solo si su separación es < 2(F + r) = 25.4°.
+- Ningún par cumple ninguna de las dos condiciones. Por eso **cada región necesita su propio satélite**: 6 de los 8 quedan comprometidos y los 2 libres se reparten como redundancia. Esa es una decisión combinatoria real.
+- El problema se vuelve trivial a partir de F ≥ 31.05/2 + 2.7 = **18.2°**, cuando un satélite cubre a la vez Yucatán y California. F = 10° queda lejos de ese régimen.
+
+Con F = 10° el problema también es difícil para una búsqueda a ciegas. La fracción de la esfera dentro de un casquete de radio θ es (1 − cos θ)/2. Así:
+
+- Un satélite aleatorio cubre completa una región dada con probabilidad **0.41 %**.
+- La toca con probabilidad **1.22 %**.
+- La unión aproximada de las 6 zonas con señal es **7.3 %** de la esfera. En el 92.7 % restante, mover un satélite no cambia la cobertura: hay mesetas de aptitud.
+
+Con F = 5° (escenario `footprint_chico`, §8) esas cifras bajan a 0.040 %, 0.45 % y 2.7 %.
+
+### 2.3 Cobertura de una región por un satélite
+
+```
+c_iρ = clip( (F + r_ρ − d_iρ) / (2·r_ρ), 0, 1 )
+```
+
+donde d_iρ = `central_angle(sat_i, centro_ρ)`. La cobertura vale 1 cuando la región cabe completa en el casquete, 0 cuando no hay solapamiento, y es **lineal** en d entre esos dos extremos. Es una aproximación de la fracción solapada: continua, monótona y barata de calcular. Con F = 10° y r = 2.7°:
+
+| d (°) | 0 | 7.3 | 8.65 | 10 | 11.35 | 12.7 |
+|---|---|---|---|---|---|---|
+| c | 1 | 1 | 0.75 | 0.5 | 0.25 | 0 |
+
+La parte parcial no es un adorno: le da al algoritmo una pendiente para pasar de "toca la región" a "la cubre completa".
+
+### 2.4 Varios satélites sobre la misma región
+
+```
+c_ρ = max_i c_iρ
+```
+
+La cobertura de una región la aporta su mejor satélite. No se suman áreas: es una regla conservadora y fácil de explicar. Con F = 10° tampoco hay casos relevantes en que dos satélites parciales se complementen sobre una región de 2.7°.
+
+### 2.5 Criterio de cubierta
+
+Una región está **cubierta** si y solo si c_ρ == 1.0. Si 0 < c_ρ < 1 está *parcial*, y si c_ρ = 0, *no cubierta*. La función `model.coverage` devuelve `{region_id: c_ρ}`, y el resultado de cada ejecución guarda esas coberturas para la configuración inicial, la final y el mejor individuo de cada generación (`best_coverage`).
+
+Nota numérica: la implementación aplica la fórmula tal cual (`model.coverage_matrix`). En el borde exacto d = F − r, el redondeo en coma flotante da 0.9999999999999997 en vez de 1.0, así que un satélite situado justo en ese borde cuenta como cobertura parcial. En la práctica, cubrir una región exige quedar a menos de 7.3° de su centro; con el satélite sobre el centro, c = 1.0 exacto. Ver la §9.
 
 ## 3. Calidad de una configuración y prioridades
 
