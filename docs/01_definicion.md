@@ -355,7 +355,116 @@ Como el algoritmo es estocástico, el criterio se evalúa por ejecución. El Ent
 
 ## 8. Escenarios derivados y sus óptimos
 
-_Pendiente._
+Los escenarios derivados sirven para las pruebas de condiciones límite y de cambio de condiciones (§3.3 del enunciado). Cada uno es una copia literal de `scenarios/base.json` con cambios mínimos, y todos cumplen las reglas de §4.6 del contrato:
+
+- Las 6 regiones (id, nombre, centro y radio) quedan intactas, para poder comparar.
+- Las 3 zonas de desechos y los 2 objetos originales no se borran ni se mueven; solo se agrandan o se añaden zonas nuevas.
+- `fitness` (K = 0.5 y β = 0.05) y `contract_version` = "1.0.1" no cambian.
+
+Todos validan contra `schemas/scenario.schema.json` y se cargan con `model.load_scenario`.
+
+### 8.1 Resumen
+
+| Archivo | Cambio respecto a base | Óptimo teórico | Composición del óptimo | Prueba del Entregable 3 |
+|---|---|---|---|---|
+| `reducido.json` | Radios de las 5 zonas ×1.5 y zona nueva `bloqueo_australia_este` | **1.023077** | 6/6 + redundancia en Yucatán y Amazonía | P5 Espacio reducido; P3/P4/P8 con restricción activa; P11 |
+| `inviable.json` | Zona nueva `bloqueo_yucatan` de 13° sobre Yucatán | **0.796154** | 5/6 (Yucatán imposible) + redundancia en Amazonía y en dos Media | P6 Condición inviable; P11 |
+| `prioridad_cambiada.json` | Australia → Alta (3), California → Normal (1) | **1.021429** | 6/6 + redundancia en dos de las tres Alta | P11 Revalidación (cambio de prioridades) |
+| `menos_sats.json` | `n_sats` = 4 | **0.769231** | 2 Alta + 2 de las 3 Media, sin redundancia | P11 (una solución de 8 satélites deja de ser válida) |
+| `footprint_chico.json` | `footprint_deg` = 5.0 | **1.023077** | Igual que la base, más difícil de encontrar | P11; contrasta con P9 (sensibilidad al footprint) |
+
+Cada óptimo se comprobó evaluando con `model.fitness` una configuración explícita: un satélite sobre el centro de cada región que se cubre y los satélites sobrantes sobre los centros de las regiones que reciben redundancia. En todos los casos la configuración es válida (0 violaciones) y da la cifra de la tabla con 6 decimales, tanto en modo penalty como en strict.
+
+### 8.2 `reducido.json` — espacio reducido
+
+**Cambios.** `atlantico_norte` pasa a 18.0°, `pacifico_sur` a 15.0°, `polar_norte` a 12.0°, y `objeto_a` y `objeto_b` a 7.5° (todos ×1.5). Además se añade la zona de desechos `bloqueo_australia_este`, centrada en (−25.0, 141.0) con radio 6.0°.
+
+**Efecto:**
+
+- El área prohibida pasa del 2.73 % al **6.38 %** de la esfera, y la probabilidad de que 8 satélites aleatorios sean todos válidos baja de 0.80 a **0.59**. Habrá más inválidos en la población inicial y la reparación trabajará más.
+- El centro de `bloqueo_australia_este` está a 7.25° del centro de Australia, y su borde, a **1.25°**. La zona corta el casquete de cobertura completa de Australia (radio F − r = 7.3° alrededor del centro) sin taparlo entero: elimina el **29 %** de las posiciones desde las que se cubre Australia completa (estimación de Monte Carlo). Así se cumple el requisito de §4.6 del contrato y una restricción queda **activa** cerca del óptimo: el satélite de Australia tiene que quedar en el lado oeste.
+- Las zonas agrandadas no alcanzan ningún casquete útil: el centro de región más cercano a una de ellas es Australia, a 16.26° del borde de `objeto_b`.
+
+**Óptimo.** El centro de Australia sigue siendo válido (7.25° > 6.0°), así que el óptimo no cambia: **1.023077**. El escenario no reduce lo alcanzable, pero sí el espacio donde buscarlo.
+
+### 8.3 `inviable.json` — condición inviable
+
+**Cambio.** Se añade la zona de desechos `bloqueo_yucatan`, centrada en Yucatán (20.5, −89.0) con radio 13.0°.
+
+**Por qué es inviable.** Para que un satélite aporte cualquier cobertura a Yucatán tiene que estar a menos de F + r = 12.7° de su centro. Todo ese casquete está dentro de la zona prohibida (12.7 < 13.0). Cubrir Yucatán, aunque sea en parte, exige violar una restricción.
+
+**El resto sigue siendo cubrible.** El borde de `bloqueo_yucatan` queda a 22.74° de Amazonía y a 18.05° de California, ambos por encima de 7.3°. El área prohibida es el 4.02 % de la esfera, y la probabilidad de que 8 satélites aleatorios sean válidos es 0.72.
+
+**Óptimo válido.** 5 satélites cubren las otras 5 regiones y quedan **3** sobrantes para la redundancia, que va a las tres regiones de mayor peso entre las cubribles: Amazonía (3) y dos de las Media (2 + 2):
+
+```
+óptimo = (13 − 3)/13 + 0.05 · (3 + 2 + 2)/13 = 0.769231 + 0.026923 = 0.796154
+```
+
+En modo penalty tampoco compensa violar: cubrir Yucatán dentro de la zona gana como mucho 3/13 + 0.05·3/13 = 0.242 y cuesta K = 0.5.
+
+> **Discrepancia con el contrato.** §4.6 y §10 de `docs/contratos.md` dan 0.788462 = 10/13 + 0.05·(3 + 2)/13, con redundancia solo en Amazonía y una Media. Ese cálculo cuenta 2 satélites sobrantes, pero en `inviable` sobran 3 (8 − 5). La configuración del contrato vale 0.788462 con `model.fitness`; la de arriba, válida y sin violaciones, vale **0.796154**. Este documento usa 0.796154. La corrección del contrato y de los consumidores de ese oráculo queda propuesta al coordinador.
+
+### 8.4 `prioridad_cambiada.json` — prioridades cambiadas
+
+**Cambio.** Australia pasa de Normal (1) a Alta (3) y California, de Media (2) a Normal (1). Nada más cambia: ni las zonas, ni `n_sats`, ni el footprint.
+
+**Óptimo.** Σw = 3 + 3 + 1 + 2 + 2 + 3 = 14. Las tres regiones Alta (Yucatán, Amazonía y Australia) empatan para la redundancia, y cualquier par de ellas da:
+
+```
+óptimo = 1 + 0.05 · (3 + 3)/14 = 1.021429
+```
+
+Las desigualdades de §3.3 se mantienen: β = 0.05 < 1/14 = 0.071 y K = 0.5 > 3/14 + 0.05 = 0.264.
+
+**Qué cambia y qué no:**
+
+- Una solución válida de la base **sigue siendo válida**, porque solo cambian los pesos.
+- Lo que cambia es su aptitud. Por ejemplo, la configuración final de `mock.json` pasa de 1.011538 a 1.010714.
+- Con estos pesos, el óptimo de la base (redundancia en Yucatán y Amazonía) **sigue siendo óptimo**: vale 1.021429, lo mismo que poner la redundancia en Australia y Amazonía. La asignación de la redundancia *puede* cambiar, pero no *tiene* que hacerlo.
+- Si se quiere un caso en el que la solución base deje de ser óptima, el contrato permite otros pesos ("p. ej."). Con Australia → Alta y Yucatán → Media, la base vale 1.017857 frente a un óptimo de 1.021429. Se optó por el ejemplo literal del contrato, que es el mismo que ya usan los tests de restricciones.
+
+### 8.5 `menos_sats.json` — cuatro satélites
+
+**Cambio.** `n_sats` = 4.
+
+**Óptimo.** Con 4 satélites y un satélite por región (§2.2), se cubren como mucho 4 regiones. Las prioridades deciden cuáles: las 2 Alta y 2 de las 3 Media.
+
+```
+óptimo = (3 + 3 + 2 + 2)/13 = 0.769231
+```
+
+No hay redundancia posible: duplicar una región Alta (0.05·3/13 = 0.012) vale menos que cubrir una Media (2/13 = 0.154). Hay tres óptimos equivalentes, según qué Media se deje fuera.
+
+**Revalidación.** Cualquier solución de 8 satélites queda inválida bajo este escenario por número de satélites (8 ≠ 4), aunque no viole ninguna zona.
+
+### 8.6 `footprint_chico.json` — footprint de 5°
+
+**Cambio.** `footprint_deg` = 5.0.
+
+**Efecto:**
+
+- Cubrir completa una región exige d ≤ F − r = 2.3°, y tocarla, d < 7.7°.
+- Como 2(F + r) = 15.4° < 31.05°, sigue rigiendo el principio de un satélite por región.
+- Para un satélite aleatorio, la probabilidad de tocar una región dada baja de 1.22 % a **0.45 %**, y la de cubrirla completa, de 0.41 % a **0.040 %**.
+- La zona con señal pasa del 7.3 % al 2.7 % de la esfera: hay más mesetas y la búsqueda es más difícil.
+
+**Óptimo.** Es el mismo de la base, **1.023077**, con los satélites sobre los centros de las regiones. Las restricciones siguen inactivas en el óptimo (§4.4).
+
+### 8.7 Ejemplo de revalidación
+
+Como ejemplo del cambio de condiciones (§3.3 del enunciado), esta es la configuración final de `results/mock.json` (válida en la base, aptitud 1.011538, 6/6 cubiertas), evaluada sin re-optimizar con `model.fitness` (modo penalty) y `model.violations` bajo cada escenario:
+
+| Escenario | Aptitud | Violaciones | ¿Sigue siendo válida? |
+|---|---|---|---|
+| `base` | 1.011538 | 0 | Sí |
+| `reducido` | 0.511538 | 1: el satélite 0 cae 3.65° dentro de `atlantico_norte` agrandada | No |
+| `inviable` | 0.011538 | 2: los satélites 1 y 7, los dos de Yucatán, caen dentro de `bloqueo_yucatan` | No |
+| `prioridad_cambiada` | 1.010714 | 0 | Sí, con otra aptitud |
+| `menos_sats` | 1.011538 | 0 | No: tiene 8 satélites y el escenario exige 4 |
+| `footprint_chico` | 1.000000 | 0 | Sí. Mantiene 6/6, pero pierde la redundancia de Yucatán (el satélite 7 queda a más de 2.3°) |
+
+La revalidación sistemática de soluciones reales y la re-optimización sembrada con ellas (`revalidate.revalidate` y `revalidate.reoptimize`) forman la prueba P11 del Entregable 3.
 
 ## 9. Limitaciones conocidas
 
