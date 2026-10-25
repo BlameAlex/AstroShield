@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AstroShield · Constelación</title>
+  <link rel="stylesheet" href="style.css">
+  <!-- Versión exacta fijada (contrato §11). Incluye three.js empaquetado. -->
+  <script src="https://cdn.jsdelivr.net/npm/globe.gl@2.46.2/dist/globe.gl.min.js"></script>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo" aria-hidden="true"></span>
+      <div>
+        <h1>AstroShield</h1>
+        <p class="subtitle" id="subtitle">Cargando resultado…</p>
+      </div>
+    </div>
+    <div class="loader">
+      <label class="field">
+        <span>Resultado</span>
+        <select id="file-select" hidden></select>
+      </label>
+      <label class="btn file-btn">
+        Abrir JSON…
+        <input type="file" id="file-input" accept=".json,application/json">
+      </label>
+    </div>
+  </header>
+
+  <div id="error" class="error" role="alert" hidden></div>
+
+  <main class="layout">
+    <section class="stage" aria-label="Globo 3D">
+      <div id="globe" class="globe"></div>
+
+      <div class="legend" id="legend" aria-label="Leyenda">
+        <h2>Leyenda</h2>
+        <ul>
+          <li><span class="sw sw-covered"></span>Región cubierta (c = 1)</li>
+          <li><span class="sw sw-partial"></span>Región parcial (0 &lt; c &lt; 1)</li>
+          <li><span class="sw sw-uncovered"></span>Región no cubierta (c = 0)</li>
+          <li><span class="sw sw-sat"></span>Satélite (mejor individuo)</li>
+          <li><span class="sw sw-sat-violating"></span>Satélite que viola una zona</li>
+          <li><span class="sw sw-footprint"></span>Footprint del satélite</li>
+          <li><span class="sw sw-debris"></span>Zona de desechos <b>⚠</b></li>
+          <li><span class="sw sw-occupied"></span>Objeto ocupado <b>■</b></li>
+          <li class="cmp-only"><span class="sw sw-ghost"></span>Satélite inicial (fantasma)</li>
+          <li class="cmp-only"><span class="sw sw-arc"></span>Arco sat i inicial → sat i actual</li>
+        </ul>
+        <p class="note cmp-only">El emparejamiento es por índice: el contrato trata los satélites
+          como conjunto no ordenado (§3), así que el arco no implica una trayectoria.</p>
+      </div>
+
+      <div class="layers">
+        <label><input type="checkbox" id="tg-footprints" checked> Footprints</label>
+        <label><input type="checkbox" id="tg-labels" checked> Etiquetas</label>
+        <label><input type="checkbox" id="tg-compare"> Comparar con inicial</label>
+      </div>
+
+      <div class="player" aria-label="Reproducción por generación">
+        <div class="views">
+          <button class="btn" id="btn-initial" title="Configuración inicial (gen 0)">Inicial</button>
+          <button class="btn" id="btn-final" title="Configuración final (última gen)">Final</button>
+        </div>
+        <div class="transport">
+          <button class="btn icon" id="btn-first" title="Primera generación (Inicio)" aria-label="Primera">⏮</button>
+          <button class="btn icon" id="btn-prev" title="Generación anterior (←)" aria-label="Anterior">◀</button>
+          <button class="btn icon play" id="btn-play" title="Reproducir / pausar (espacio)" aria-label="Reproducir">▶</button>
+          <button class="btn icon" id="btn-next" title="Generación siguiente (→)" aria-label="Siguiente">▶︎|</button>
+          <button class="btn icon" id="btn-last" title="Última generación (Fin)" aria-label="Última">⏭</button>
+        </div>
+        <input type="range" id="slider" min="0" max="0" value="0" step="1" aria-label="Generación">
+        <output id="gen-label" class="gen-label">gen 0 / 0</output>
+        <label class="field speed">
+          <span>Velocidad</span>
+          <select id="speed">
+            <option value="2">2 gen/s</option>
+            <option value="5">5 gen/s</option>
+            <option value="10" selected>10 gen/s</option>
+            <option value="25">25 gen/s</option>
+            <option value="50">50 gen/s</option>
+            <option value="100">100 gen/s</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <aside class="panel" id="panel" aria-label="Panel de la ejecución">
+      <section class="card" id="card-meta"></section>
+      <section class="card" id="card-metrics"></section>
+      <section class="card">
+        <h2>Aptitud por generación</h2>
+        <div id="chart-fitness" class="chart"></div>
+        <div class="minis">
+          <div><h3>n_invalid</h3><div id="chart-invalid" class="chart mini"></div></div>
+          <div><h3>n_covered</h3><div id="chart-covered" class="chart mini"></div></div>
+          <div><h3>diversidad</h3><div id="chart-diversity" class="chart mini"></div></div>
+        </div>
+      </section>
+      <section class="card" id="card-violations"></section>
+      <section class="card" id="card-verify"></section>
+    </aside>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
