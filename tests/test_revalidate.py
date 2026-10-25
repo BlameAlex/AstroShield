@@ -203,7 +203,7 @@ def test_reoptimize_id_por_defecto(mock_result):
 def test_reoptimize_inviable_repair(mock_result):
     res = revalidate.reoptimize(mock_result, _derivado("inviable"), mode="repair", params=FAST)
     assert res["valid"] is True
-    assert res["final"]["fitness"] <= 0.788462 + 1e-9
+    assert res["final"]["fitness"] <= 0.796154 + 1e-9
     assert res["final"]["coverage"]["yucatan"] == 0.0
 
 

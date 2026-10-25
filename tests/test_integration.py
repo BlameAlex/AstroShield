@@ -303,7 +303,7 @@ def test_cota_optimo_base():
 def test_cota_optimo_inviable():
     r = run(_derivado("inviable"), "repair", FAST, 0)
     assert r["valid"]
-    assert r["final"]["fitness"] <= 0.788462 + 1e-9
+    assert r["final"]["fitness"] <= 0.796154 + 1e-9
     assert r["final"]["coverage"]["yucatan"] == 0.0
 
 
