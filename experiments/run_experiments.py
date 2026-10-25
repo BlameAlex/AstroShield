@@ -11,8 +11,16 @@ default_rng(seed) por dentro, así que el resultado no depende de --jobs ni del 
 """
 import argparse
 import copy
+import csv
+import hashlib
+import json
 import os
+import platform
+import subprocess
 import sys
+import tempfile
+import time
+from concurrent.futures import ProcessPoolExecutor
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -22,9 +30,10 @@ if str(ROOT / "src") not in sys.path:  # mismo criterio que el shim run.py de la
 import numpy as np  # noqa: E402
 
 import analysis  # noqa: E402
-from astroshield import model  # noqa: E402
+from astroshield import CONTRACT_VERSION, model  # noqa: E402
 from astroshield.geometry import sample_sphere  # noqa: E402
-from astroshield.run import run  # noqa: E402
+from astroshield.revalidate import revalidate  # noqa: E402
+from astroshield.run import run, save_result  # noqa: E402
 
 SEEDS = list(range(42, 72))
 QUICK_SEEDS = SEEDS[:3]
@@ -140,6 +149,251 @@ def run_task(t: dict) -> tuple[dict, dict, list]:
     return analysis.run_row(res, t), analysis.run_curves(res), res["final"]["sats"]
 
 
+def _timed_task(t: dict):
+    t0 = time.perf_counter()
+    out = run_task(t)
+    return out, time.perf_counter() - t0
+
+
+def _pmap(fn, items, jobs: int) -> list:
+    """map ordenado; en paralelo con ProcessPoolExecutor si jobs > 1 (el orden no cambia el resultado)."""
+    if jobs <= 1 or len(items) <= 1:
+        return [fn(x) for x in items]
+    with ProcessPoolExecutor(max_workers=min(jobs, len(items))) as ex:
+        return list(ex.map(fn, items, chunksize=1))
+
+
+# --- CSV deterministas --------------------------------------------------------
+
+def _fmt(v) -> str:
+    if v is None:
+        return ""
+    if isinstance(v, bool):
+        return str(v)
+    if isinstance(v, float):
+        return "" if v != v else repr(v)   # repr: 17 cifras, hash estable
+    return str(v)
+
+
+def write_csv(rows: list[dict], path: Path) -> None:
+    cols: list[str] = []
+    for r in rows:
+        cols += [k for k in r if k not in cols]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f, lineterminator="\n")
+        w.writerow(cols)
+        for r in rows:
+            w.writerow([_fmt(r.get(c)) for c in cols])
+
+
+def _parse(s: str):
+    if s == "":
+        return None
+    if s in ("True", "False"):
+        return s == "True"
+    for cast in (int, float):
+        try:
+            return cast(s)
+        except ValueError:
+            pass
+    return s
+
+
+def read_csv(path: Path) -> list[dict]:
+    with open(path, newline="", encoding="utf-8") as f:
+        return [{k: _parse(v) for k, v in r.items()} for r in csv.DictReader(f)]
+
+
+def file_hash(path: Path) -> str:
+    """sha256 con fin de línea normalizado a LF (git en Windows puede convertir a CRLF)."""
+    return hashlib.sha256(Path(path).read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+
+
+# --- Campañas -----------------------------------------------------------------
+
+def run_campaigns(names: list[str], quick: bool, jobs: int, out: Path) -> dict:
+    """Ejecuta las campañas en un solo pool y escribe exp_runs/<c>.csv, curvas_<c>.csv y finales_<c>.csv."""
+    tasks = [t for n in names for t in campaign_tasks(n, quick)]
+    t0 = time.perf_counter()
+    results = _pmap(_timed_task, tasks, jobs)
+    wall = time.perf_counter() - t0
+    by_c: dict[str, list] = {}
+    for t, ((row, curve, sats), secs) in zip(tasks, results):
+        by_c.setdefault(t["campaign"], []).append((t, row, curve, sats, secs))
+    runs_dir = out / "exp_runs"
+    for c, items in by_c.items():
+        write_csv([row for _, row, _, _, _ in items], runs_dir / f"{c}.csv")
+        write_csv(analysis.aggregate_curves([(t["config"], curve) for t, _, curve, _, _ in items]),
+                  runs_dir / f"curvas_{c}.csv")
+        write_csv([{"config": t["config"], "seed": t["seed"], "sat": i, "lat": float(s[0]), "lon": float(s[1])}
+                   for t, _, _, sats, _ in items for i, s in enumerate(sats)], runs_dir / f"finales_{c}.csv")
+    times = [{"campaign": c, "n_tasks": len(items), "cpu_s": sum(x[4] for x in items),
+              "mean_task_s": sum(x[4] for x in items) / len(items)} for c, items in by_c.items()]
+    times.append({"campaign": "TOTAL", "n_tasks": len(tasks), "cpu_s": sum(r["cpu_s"] for r in times),
+                  "wall_s": wall, "jobs": jobs})
+    return {"by_campaign": by_c, "times": times}
+
+
+# --- Representativas y determinismo ------------------------------------------
+
+class DeterminismError(RuntimeError):
+    pass
+
+
+def pick_representatives(rows: list[dict], roles=("best", "median", "worst")) -> list[tuple[str, str, int]]:
+    """[(config, rol, seed)] por configuración. Orden estable por (aptitud penalty, semilla)."""
+    by_cfg: dict[str, list[dict]] = {}
+    for r in rows:
+        by_cfg.setdefault(r["config"], []).append(r)
+    out = []
+    for cfg, rs in by_cfg.items():
+        asc = sorted(rs, key=lambda r: (r["final_penalty_fitness"], r["seed"]))
+        desc = sorted(rs, key=lambda r: (-r["final_penalty_fitness"], r["seed"]))
+        pick = {"best": desc[0], "median": asc[len(asc) // 2], "worst": asc[0]}
+        out += [(cfg, role, int(pick[role]["seed"])) for role in roles]
+    return out
+
+
+def verify_representative(res: dict, row: dict, sats: list) -> None:
+    """Exige igualdad bit a bit entre la re-ejecución y la primera pasada; si no, DeterminismError."""
+    fpf = model.fitness(np.asarray(res["final"]["sats"], dtype=float), res["scenario"], "penalty")
+    if (fpf != row["final_penalty_fitness"] or res["final"]["fitness"] != row["final_fitness"]
+            or res["final"]["sats"] != [list(map(float, s)) for s in sats]):
+        raise DeterminismError(f"{res['id']}: la re-ejecución no coincide con la fila CSV")
+
+
+def _run_full(t: dict) -> dict:
+    return run(t["scenario"], t["mode"], t["params"], t["seed"], run_id=run_id(t))
+
+
+def save_representatives(by_c: dict, jobs: int, out: Path) -> list[dict]:
+    """Re-ejecuta mejor/mediana/peor (base, reducido, inviable), mediana (sensibilidad) y base_repair_s42."""
+    wanted: dict[tuple[str, int], list[str]] = {}
+    for c, items in by_c.items():
+        if c == "aleatoria":
+            continue
+        roles = ("best", "median", "worst") if c in ("base", "reducido", "inviable") else ("median",)
+        for cfg, role, seed in pick_representatives([row for _, row, _, _, _ in items], roles):
+            wanted.setdefault((cfg, seed), []).append(role)
+    if "base" in by_c:
+        wanted.setdefault(("base_repair", 42), []).append("p1")
+    index = {(t["config"], t["seed"]): (t, row, sats) for items in by_c.values() for t, row, _, sats, _ in items}
+    keys = [k for k in index if k in wanted]          # orden de tareas
+    results = _pmap(_run_full, [index[k][0] for k in keys], jobs)
+    table = []
+    for k, res in zip(keys, results):
+        t, row, sats = index[k]
+        verify_representative(res, row, sats)
+        path = save_result(res, out / "exp_json")
+        table.append({"config": k[0], "seed": k[1], "roles": "+".join(wanted[k]),
+                      "final_penalty_fitness": row["final_penalty_fitness"], "file": path.name})
+    write_csv(table, out / "exp_meta" / "representativas.csv")
+    return table
+
+
+# --- Revalidación (P11) ------------------------------------------------------
+
+def run_revalidations(out: Path) -> list[dict]:
+    """exp_json/base_repair_s42.json → cada escenario derivado disponible; salta los que falten (1D)."""
+    src = out / "exp_json" / "base_repair_s42.json"
+    rows = []
+    if not src.exists():
+        return rows
+    for d in DERIVED:
+        path = scenario_path(d)
+        if not path.exists():
+            continue
+        rv = revalidate(src, path)
+        dest = out / "exp_reval" / f"reval_{rv['result_id']}__{rv['new_scenario_id']}.json"
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_text(json.dumps(rv, indent=2, ensure_ascii=False, allow_nan=False), encoding="utf-8")
+        rows.append({"scenario": d, "still_valid": rv["still_valid"], "reasons": "; ".join(rv["reasons"]),
+                     "fitness_before": rv["fitness_before"], "fitness_after": rv["fitness_after"],
+                     "lost_regions": " ".join(rv["lost_regions"]), "gained_regions": " ".join(rv["gained_regions"]),
+                     "n_violations": len(rv["violations"])})
+    if rows:
+        write_csv(rows, out / "exp_runs" / "reval.csv")
+    return rows
+
+
+# --- Metadatos ----------------------------------------------------------------
+
+def _git(*args) -> str:
+    try:
+        return subprocess.run(["git", *args], cwd=ROOT, capture_output=True, text=True, check=True).stdout.strip()
+    except (OSError, subprocess.CalledProcessError):
+        return "?"
+
+
+def write_meta(out: Path, argv: list[str], jobs: int, times: list[dict] | None) -> None:
+    meta = out / "exp_meta"
+    meta.mkdir(parents=True, exist_ok=True)
+    import matplotlib
+    lines = [f"python: {platform.python_version()}", f"numpy: {np.__version__}",
+             f"matplotlib: {matplotlib.__version__}", f"platform: {platform.platform()}",
+             f"cpu_count: {os.cpu_count()}", f"jobs: {jobs}", f"contract_version: {CONTRACT_VERSION}",
+             f"git_commit: {_git('rev-parse', 'HEAD')}",
+             f"git_status_clean: {_git('status', '--porcelain') == ''}",
+             "command: python experiments/run_experiments.py " + " ".join(argv),
+             "missing_scenarios: " + ",".join(d for d in DERIVED if not scenario_path(d).exists())]
+    (meta / "entorno.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    hashes = [f"{file_hash(p)}  exp_runs/{p.name}" for p in sorted((out / "exp_runs").glob("*.csv"))]
+    (meta / "sha256.txt").write_text("\n".join(hashes) + "\n", encoding="utf-8")
+    if times is not None:
+        write_csv(times, meta / "tiempos.csv")
+
+
+def verify_hashes(names: list[str], quick: bool, jobs: int, out: Path) -> int:
+    """Re-ejecuta las campañas en un directorio temporal y compara los sha256 con exp_meta/sha256.txt."""
+    ref = {}
+    for line in (out / "exp_meta" / "sha256.txt").read_text(encoding="utf-8").splitlines():
+        if line.strip():
+            h, name = line.split(maxsplit=1)
+            ref[name] = h
+    with tempfile.TemporaryDirectory() as tmp:
+        run_campaigns(names, quick, jobs, Path(tmp))
+        bad = 0
+        for p in sorted((Path(tmp) / "exp_runs").glob("*.csv")):
+            name = f"exp_runs/{p.name}"
+            ok = ref.get(name) == file_hash(p)
+            bad += not ok
+            print(f"{'OK ' if ok else 'DIF'} {name}")
+    return 0 if bad == 0 else 1
+
+
+# --- Bench ----------------------------------------------------------------------
+
+def bench(jobs: int, out: Path) -> list[dict]:
+    """1 ejecución 100×200 por modo (base, s=42) + 1 aleatoria; proyecta el tiempo de --all."""
+    base = model.load_scenario(scenario_path("base"))
+    per_eval = {}
+    rows = []
+    for m in MODES:
+        t0 = time.perf_counter()
+        run(base, m, {}, 42)
+        s = time.perf_counter() - t0
+        per_eval[m] = s / 20100
+        rows.append({"what": f"run base {m} 100x200", "seconds": s})
+    t0 = time.perf_counter()
+    _random_run(base, RANDOM_EVALS, 42)
+    s = time.perf_counter() - t0
+    per_eval["aleatoria"] = s / RANDOM_EVALS
+    rows.append({"what": "aleatoria 20100", "seconds": s})
+    cpu = 0.0
+    for n in CAMPAIGNS:
+        for t in campaign_tasks(n):
+            key = "aleatoria" if n == "aleatoria" else t["mode"]
+            evals = t["params"].get("n_evals") or t["params"].get("pop_size", 100) * (t["params"].get("gens", 200) + 1)
+            cpu += per_eval[key] * evals
+    rows.append({"what": "proyeccion cpu --all (s)", "seconds": cpu})
+    rows.append({"what": f"proyeccion reloj --all con {jobs} procesos (s)", "seconds": cpu / jobs})
+    write_csv(rows, out / "exp_meta" / "bench.csv")
+    for r in rows:
+        print(f"{r['what']}: {r['seconds']:.1f} s")
+    return rows
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description="Campañas de experimentos de AstroShield (Entregable 3).")
     p.add_argument("--all", action="store_true", help="ejecuta todas las campañas disponibles")
@@ -149,11 +403,60 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--verify", action="store_true", help="re-ejecuta y compara hashes de exp_runs/*.csv")
     p.add_argument("--jobs", type=int, default=os.cpu_count() or 1, help="procesos en paralelo")
     p.add_argument("--out", default=str(ROOT / "results"), help="directorio raíz de salida")
+    p.add_argument("--tables", action="store_true", help="solo regenera tablas y figuras desde exp_runs/")
+    p.add_argument("--no-figs", action="store_true", help="no genera figuras (implícito con --quick)")
     return p
 
 
+def make_outputs(out: Path, figs: bool) -> None:
+    analysis.write_tables(out)
+    if figs:
+        import plots
+        plots.make_all(out)
+
+
 def main(argv: list[str] | None = None) -> int:
-    build_parser().parse_args(argv)
+    argv = sys.argv[1:] if argv is None else list(argv)
+    args = build_parser().parse_args(argv)
+    out = Path(args.out)
+    if args.bench:
+        bench(args.jobs, out)
+        return 0
+    if args.tables:
+        make_outputs(out, figs=not args.no_figs)
+        return 0
+    if args.all:
+        names = list(CAMPAIGNS)
+    elif args.only:
+        names = [n.strip() for n in args.only.split(",") if n.strip()]
+        unknown = set(names) - set(CAMPAIGNS)
+        if unknown:
+            print(f"campañas desconocidas: {sorted(unknown)}", file=sys.stderr)
+            return 2
+    else:
+        build_parser().print_help()
+        return 2
+    skipped = [n for n in names if not campaign_tasks(n, args.quick)]
+    for n in skipped:
+        print(f"[omitida] {n}: falta scenarios/{n}.json (bloqueada por 1D)")
+    names = [n for n in names if n not in skipped]
+    if args.verify:
+        return verify_hashes(names, args.quick, args.jobs, out)
+    t0 = time.perf_counter()
+    camp = run_campaigns(names, args.quick, args.jobs, out)
+    print(f"campañas {names}: {time.perf_counter() - t0:.1f} s")
+    t1 = time.perf_counter()
+    try:
+        reps = save_representatives(camp["by_campaign"], args.jobs, out)
+    except DeterminismError as e:
+        print(f"ERROR de determinismo: {e}", file=sys.stderr)
+        return 3
+    camp["times"].append({"campaign": "representativas", "n_tasks": len(reps),
+                          "wall_s": time.perf_counter() - t1, "jobs": args.jobs})
+    print(f"representativas: {len(reps)} JSON en {time.perf_counter() - t1:.1f} s (determinismo OK)")
+    run_revalidations(out)
+    write_meta(out, argv, args.jobs, camp["times"])
+    make_outputs(out, figs=not (args.quick or args.no_figs))
     return 0
 
 

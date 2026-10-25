@@ -150,6 +150,13 @@ def aggregate_curves(items: list[tuple[str, dict]]) -> list[dict]:
     return rows
 
 
+# --- Tablas -----------------------------------------------------------------------
+
+def write_tables(out: Path) -> list[Path]:
+    """Escribe exp_tablas/*.md a partir de exp_runs/*.csv. Devuelve las rutas escritas."""
+    return []
+
+
 # --- Estadística --------------------------------------------------------------
 
 def wilson(k: int, n: int, z: float = 1.96) -> tuple[float, float]:
