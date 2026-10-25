@@ -321,7 +321,37 @@ K y β solo se varían en copias en memoria, nunca en `scenarios/`.
 
 ## 7. Criterio de solución suficientemente buena
 
-_Pendiente._
+### 7.1 Criterio
+
+Una solución es **suficientemente buena** para un escenario si cumple las dos condiciones siguientes:
+
+1. **Es válida**: `valid == true`, es decir, no tiene violaciones y tiene `n_sats` satélites (§4.1).
+2. **Cubre todas las regiones que el escenario permite cubrir.** En la base son las 6 regiones con c = 1.0; equivale a una aptitud ≥ 1.0.
+
+La redundancia no es parte del criterio: es lo que separa una solución suficientemente buena (≥ 1.0) del óptimo (1.023077). Por eso, junto a cada solución se reporta su **brecha frente al óptimo teórico**:
+
+```
+brecha = óptimo − aptitud_final
+```
+
+### 7.2 Por qué no basta con "el AG dejó de mejorar"
+
+Que la curva del mejor se aplane no prueba que se haya llegado al óptimo (§5 del enunciado): el AG puede haber quedado atascado en una meseta (§2.2) o en un óptimo local. Por eso cada escenario tiene un **oráculo**: un óptimo teórico calculado a mano y comprobado con `model.fitness` sobre una configuración explícita (§8). Con él, la calidad se mide en términos absolutos.
+
+Como segunda referencia está la búsqueda aleatoria. Con 20 000 configuraciones de 8 satélites uniformes (semilla 0, modo penalty, escenario base), la aptitud tiene media −0.045, percentil 95 de 0.231 y máximo de 0.614, y el 19.2 % de las configuraciones son inválidas. Una solución que cumple el criterio (≥ 1.0) está muy lejos de lo que logra el azar.
+
+### 7.3 Umbral y óptimo por escenario
+
+| Escenario | Regiones cubribles | Umbral de "suficientemente buena" (válida y…) | Óptimo teórico |
+|---|---|---|---|
+| `base` | 6 | 6/6 cubiertas, aptitud ≥ 1.0 | **1.023077** |
+| `reducido` | 6 | 6/6 cubiertas, aptitud ≥ 1.0 | **1.023077** |
+| `footprint_chico` | 6 | 6/6 cubiertas, aptitud ≥ 1.0 | **1.023077** |
+| `prioridad_cambiada` | 6 | 6/6 cubiertas, aptitud ≥ 1.0 | **1.021429** |
+| `inviable` | 5 (todas menos Yucatán) | Las 5 cubiertas, aptitud ≥ 10/13 = 0.769231 | **0.796154** |
+| `menos_sats` | 4 de 6 (solo hay 4 satélites) | 2 Alta + 2 Media cubiertas, aptitud ≥ 0.769231 | **0.769231** |
+
+Como el algoritmo es estocástico, el criterio se evalúa por ejecución. El Entregable 3 reporta qué fracción de 30 semillas lo cumple, además de la media, la desviación y la brecha de la aptitud final.
 
 ## 8. Escenarios derivados y sus óptimos
 
