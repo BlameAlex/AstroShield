@@ -1,5 +1,5 @@
 {
-  "contract_version": "1.0.1",
+  "contract_version": "1.0.2",
   "id": "footprint_chico",
   "name": "Footprint de 5°",
   "description": "Footprint de 5° en lugar de 10°: la cobertura completa exige d ≤ 2.3° y la búsqueda es más difícil; alimenta la revalidación y la sensibilidad al footprint del Entregable 3.",

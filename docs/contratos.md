@@ -1,8 +1,8 @@
-# Contrato AstroShield — v1.0.1
+# Contrato AstroShield — v1.0.2
 
 > Contrato único para TODAS las Olas. Ningún agente cambia firmas, esquemas, nombres de campos ni fórmulas sin seguir la §13 (política de cambio). Si algo no está definido aquí, decide de forma local dentro de tus archivos y documenta la decisión en tu reporte final.
 >
-> Versión: `CONTRACT_VERSION = "1.0.1"` (en `src/astroshield/__init__.py`). Todo JSON de escenario y de resultado lleva `"contract_version"`.
+> Versión: `CONTRACT_VERSION = "1.0.2"` (en `src/astroshield/__init__.py`). Todo JSON de escenario y de resultado lleva `"contract_version"`.
 
 ## 0. Decreto obligatorio del usuario (aplica a todos los agentes)
 
@@ -157,7 +157,7 @@ Justificación (con Σw = 13):
 
 ```json
 {
-  "contract_version": "1.0.1",
+  "contract_version": "1.0.2",
   "id": "base",
   "name": "Escenario base del enunciado",
   "description": "6 regiones, 3 zonas de desechos y 2 objetos ocupados del enunciado; 8 satélites; footprint 10°.",
@@ -226,13 +226,13 @@ Sea r = 2.7° (radio de la región) y F = footprint. Un satélite a distancia d 
 
 - Criterio de la tabla: la zona se elige por distancia al centro. Por distancia al borde, la más cercana a Japón es `polar_norte` (centro 58.47°, borde 50.47°), no `objeto_b` (borde 52.46°). La conclusión no cambia: la menor distancia al borde entre todas las regiones es 18.76° (Australia–objeto_b).
 - Área prohibida total = 2.72 % de la esfera. La probabilidad de que 8 satélites aleatorios sean todos válidos es (1 − 0.0272)^8 = **0.80**, así que alrededor del 20 % de la población inicial aleatoria es inválida.
-- **Hecho que no debe ocultarse (§5 del enunciado):** en el escenario base, todo centro de región está a más de F − r = 7.3° del borde de cualquier zona (el mínimo es 18.76°). Por eso **las restricciones no están activas en el óptimo base**. Sí actúan durante la búsqueda (20 % de inválidos al inicio, reparación/penalización) y **muerden** en `reducido`, `inviable` y `footprint_chico`. 3A y 4A deben reportarlo así.
+- **Hecho que no debe ocultarse (§5 del enunciado):** en el escenario base, todo centro de región está a más de F − r = 7.3° del borde de cualquier zona (el mínimo es 18.76°). Por eso **las restricciones no están activas en el óptimo base**. Sí actúan durante la búsqueda (20 % de inválidos al inicio, reparación/penalización) y **muerden** en `reducido` e `inviable`. En `footprint_chico` siguen inactivas en el óptimo (cubrir completa exige d ≤ 2.3° y el centro de región más cercano está a 18.76° del borde de una zona): lo que cambia es la dificultad de la búsqueda. 3A y 4A deben reportarlo así.
 
 ### 4.6 Campos que pueden variar en escenarios derivados (1D)
 
 | Campo | ¿Varía? | Reglas |
 |---|---|---|
-| `contract_version` | No | `"1.0.1"` |
+| `contract_version` | No | `"1.0.2"` |
 | `id`, `name`, `description` | **Sí, obligatorio** | `id` = nombre del archivo sin `.json`, único |
 | `n_sats` | Sí | `menos_sats.json`: `4` |
 | `footprint_deg` | Sí | `footprint_chico.json`: `5.0` (sigue en el régimen de un satélite por región, pero cubrir completa exige d ≤ 2.3°) |
@@ -243,8 +243,8 @@ Sea r = 2.7° (radio de la región) y F = footprint. Un satélite a distancia d 
 
 Requisitos verificables por escenario (1D los justifica con números en `docs/01_definicion.md`):
 - **`reducido.json`**: radios originales ×1.5 (18, 15, 12, 7.5, 7.5) **más** al menos una zona nueva que **corte el casquete de cobertura completa** (radio F − r = 7.3° alrededor del centro) de al menos una región **sin cubrirlo por completo**. Ejemplo de referencia: zona `bloqueo_australia_este` en (-25.0, 141.0) con radio 6.0°; su centro está a ≈7.25° de Australia y su borde a ≈1.25° del centro de Australia. Así una restricción queda activa en el óptimo.
-- **`inviable.json`**: zona de desechos `bloqueo_yucatan` en (20.5, -89.0) con `radius_deg = 13.0`. Como 13.0 > F + r = 12.7, todo punto desde el que se vería Yucatán está prohibido y **cubrir Yucatán es imposible sin violar**. Óptimo válido = (13 − 3)/13 + 0.05·(3+2)/13 = **0.7885**: las otras 5 regiones cubiertas, con redundancia en Amazonía y en una región Media.
-- **`prioridad_cambiada.json`**: solo cambian prioridades y pesos. La solución base sigue siendo válida. Lo que cambia es la aptitud y la asignación de la redundancia.
+- **`inviable.json`**: zona de desechos `bloqueo_yucatan` en (20.5, -89.0) con `radius_deg = 13.0`. Como 13.0 > F + r = 12.7, todo punto desde el que se vería Yucatán está prohibido y **cubrir Yucatán es imposible sin violar**. Óptimo válido = (13 − 3)/13 + 0.05·(3+2+2)/13 = **0.796154**: las otras 5 regiones cubiertas; sobran 3 satélites (8 − 5), con redundancia en Amazonía y en dos regiones Media.
+- **`prioridad_cambiada.json`**: solo cambian prioridades y pesos. La solución base sigue siendo válida. La aptitud cambia; con los pesos del ejemplo (Σw = 14) la redundancia empata entre las tres regiones Alta y la solución base sigue siendo óptima (1.021429).
 - **`menos_sats.json`**: `n_sats = 4`. Óptimo = cubrir las 2 Alta y 2 Media = (3+3+2+2)/13 = **0.7692**, sin redundancia posible.
 - **`footprint_chico.json`**: `footprint_deg = 5.0`. Mismo óptimo teórico que la base (1.0231), pero cuesta más encontrarlo.
 
@@ -324,7 +324,7 @@ Notación: satélites i = 1..n; regiones ρ con centro c_ρ, radio r_ρ y peso w
 c_iρ = clip( (F + r_ρ − d_iρ) / (2·r_ρ), 0, 1 )
 ```
 
-- Completa (= 1) si d ≤ F − r. Ese es el criterio de la Ola 1A, `ángulo + 2.7 ≤ footprint`.
+- Completa (= 1) si d ≤ F − r. Ese es el criterio de la Ola 1A, `ángulo + 2.7 ≤ footprint`. La implementación usa un **umbral explícito**: `c = 1 si d ≤ F − r; si no, clip(...)`, porque en d = F − r exacto la fórmula da 0.9999999999999997 por redondeo.
 - 0 si d ≥ F + r: no hay solapamiento.
 - Entre esos dos valores es parcial, **lineal** en d. Vale 0.5 cuando d = F, es decir, cuando el borde del footprint pasa por el centro de la región.
 - Es una aproximación lineal de la fracción solapada, elegida por ser continua, monótona y barata. La limitación queda documentada en 1D y 4A.
@@ -367,7 +367,7 @@ Todas las funciones reciben y devuelven grados. `sc` es el `dict` que devuelve `
 ### 6.1 `src/astroshield/__init__.py` (Ola 0)
 
 ```python
-CONTRACT_VERSION = "1.0.1"
+CONTRACT_VERSION = "1.0.2"
 ```
 
 ### 6.2 `src/astroshield/geometry.py` (Ola 0, implementado completo)
@@ -838,7 +838,7 @@ Es sintético, para desarrollar 1C/1B/1D en paralelo. Las coberturas, aptitudes,
 
 ```json
 {
-  "contract_version": "1.0.1",
+  "contract_version": "1.0.2",
   "id": "mock",
   "notes": "Archivo sintético para desarrollo en paralelo (Ola 1). Coberturas, aptitudes y violaciones calculadas con las fórmulas del contrato; mean, worst, diversity y n_invalid son ilustrativos.",
   "mode": "penalty",
@@ -892,14 +892,17 @@ Comprobación de las cifras del mock (Σw = 13):
 | Escenario | Óptimo teórico de aptitud | Composición |
 |---|---|---|
 | base | **1.023077** | 6/6 cubiertas + redundancia en Yucatán y Amazonía |
-| inviable | **0.788462** | 5/6 (Yucatán es imposible) + redundancia en Amazonía y una Media |
+| inviable | **0.796154** | 5/6 (Yucatán es imposible) + redundancia en Amazonía y dos Media |
 | menos_sats (n=4) | **0.769231** | Alta + Alta + Media + Media, sin redundancia |
 | footprint_chico | 1.023077 | Igual que la base, pero más difícil de encontrar |
-| prioridad_cambiada | La calcula 1D | Depende de los pesos nuevos |
+| reducido | **1.023077** | Igual que la base: el centro de Australia queda a 7.25° de `bloqueo_australia_este` (radio 6°) |
+| prioridad_cambiada | **1.021429** | Σw = 14; 6/6 + redundancia en dos de las tres regiones Alta (empate) |
+
+Rango de validez: estos óptimos suponen el régimen de un satélite por región, F < 18.2°. Con F mayor el óptimo sube (con F = 20°, `model.fitness` da 1.038462), así que en la sensibilidad al footprint 1.023077 no es cota superior para F ≥ 18.2°.
 
 Criterio de "suficientemente buena" (Entregable 1): `valid == true` **y** las 6 regiones cubiertas (en la base, aptitud ≥ 1.0). Se reporta la brecha frente al óptimo teórico. Que el AG deje de mejorar no prueba optimalidad (§5 del enunciado): los oráculos de esta tabla sí lo permiten.
 
-Pruebas mínimas de 3A con su configuración: inicial (base, repair, s=42); evolución (curvas de history en los 3 modos); zonas y ocupadas (30 semillas × {penalty, repair, strict}: conteo de `final.violations` por `kind`); espacio reducido (`reducido`); inviable (`inviable`, comparación con 0.788462); variación (30 semillas, media/desviación/boxplot de `final.fitness` y regiones cubiertas). Pruebas propias: penalty vs repair vs strict; sensibilidad a footprint y a pop_size; revalidación base → derivados.
+Pruebas mínimas de 3A con su configuración: inicial (base, repair, s=42); evolución (curvas de history en los 3 modos); zonas y ocupadas (30 semillas × {penalty, repair, strict}: conteo de `final.violations` por `kind`); espacio reducido (`reducido`); inviable (`inviable`, comparación con 0.796154); variación (30 semillas, media/desviación/boxplot de `final.fitness` y regiones cubiertas). Pruebas propias: penalty vs repair vs strict; sensibilidad a footprint y a pop_size; revalidación base → derivados.
 
 ## 11. Contrato de la visualización (1C, 3B)
 
@@ -946,6 +949,7 @@ Dependencias entre Olas: la Ola 1 arranca cuando la Ola 0 está en `main`. La Ol
 |---|---|---|
 | 1.0.0 | 2026-10-24 | Versión inicial |
 | 1.0.1 | 2026-10-24 | PATCH previo a la publicación (P1–P5): P1 guarda de redondeo en `wrap_lon`; P2 `normalize_latlon` conserva bit a bit los valores en rango; P3 tolerancias en los bordes de `central_angle`; P4 `test_contract` excluye `results/**/escenarios/`; P5 tabla de zona más cercana por distancia al centro (nota Japón/`polar_norte`) |
+| 1.0.2 | 2026-10-25 | PATCH (P-1D-1 a P-1D-5): óptimo de `inviable` 0.796154 (sobran 3 satélites, no 2); filas de `reducido` y `prioridad_cambiada` en §10 y matiz de §4.6; las restricciones no muerden en `footprint_chico`; rango de validez de los oráculos (F < 18.2°); umbral explícito de cobertura completa en §5.1. Los JSON generados antes conservan 1.0.1 (mismo MAJOR) |
 
 ## 14. Reglas Git comunes (anteponer a cada agente)
 
