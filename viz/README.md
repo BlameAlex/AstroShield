@@ -40,3 +40,35 @@ python -m http.server 8000          # desde la raíz del repositorio
 - `node --test viz/tests/`: pruebas de `data.js` con `results/mock.json`, verificación cruzada
   de cobertura contra todos los resultados de `results/` y prueba de que no hay datos fijos
   del escenario en `viz/*.js`.
+
+## Problema conocido: saturación de CPU con navegadores headless
+
+Durante la Ola 3 la viz se verificó con Edge en modo headless (`--headless=new`, controlado
+por CDP), con tres sesiones entre las 03:56 y las 04:01 del 25/10/2026. Esas tres
+instancias **no se cerraron** al terminar la verificación. Sin GPU, el navegador dibuja el globo
+WebGL por software (SwiftShader) y lo redibuja en cada cuadro, aunque nadie mire la página.
+Cada instancia ocupó núcleos de CPU de forma continua durante unas 6 horas.
+
+Efecto: la corrida de experimentos de la Ola 3A, que se hizo al mismo tiempo, tardó mucho más de lo
+previsto. Las suites de pruebas pasaron de segundos a minutos: `pytest experiments` tardó 83 min
+con la máquina saturada y 32 s después. Por eso no se llegó a ejecutar
+`run_experiments.py --all --verify`, y por eso los tiempos de `results/exp_meta/` medidos
+después del primer `--bench` salieron inflados. Los resultados no se ven afectados, porque la
+ejecución es determinista y no depende del tiempo.
+
+Al verificar la viz con un navegador headless:
+
+- Cierra el navegador al terminar, también si el script falla (`try/finally` y `browser.close()`
+  o matar el proceso). Comprueba que no queda ninguno:
+  ```powershell
+  Get-CimInstance Win32_Process -Filter "Name='msedge.exe'" |
+    Where-Object { $_.CommandLine -match '--headless' } | Select-Object ProcessId, CreationDate
+  ```
+- Usa un perfil temporal (`--user-data-dir=<tmp>`) para poder distinguir esos procesos del
+  navegador normal y cerrarlos sin tocarlo:
+  ```powershell
+  Get-CimInstance Win32_Process -Filter "Name='msedge.exe'" |
+    Where-Object { $_.CommandLine -match '--headless' } |
+    ForEach-Object { Stop-Process -Id $_.ProcessId -Force }
+  ```
+- No hagas mediciones de rendimiento (`--bench`) mientras haya una sesión headless abierta.
