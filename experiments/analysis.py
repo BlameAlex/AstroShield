@@ -414,9 +414,16 @@ def t_times(out: Path) -> str | None:
     b = out / "exp_meta" / "bench.csv"
     t = ""
     if rows:
-        t += md_table(["campaña", "ejecuciones", "CPU (s)", "s por ejecución", "reloj (s)", "procesos"], rows)
+        t += md_table(["campaña", "ejecuciones", "Σ tiempo por ejecución (s)", "s por ejecución (media)",
+                       "reloj total (s)", "procesos"], rows)
+    b0 = out / "exp_meta" / "bench_inicial.txt"     # salida literal del primer --bench (antes de la corrida)
+    if b0.exists():
+        rows0 = [ln.rsplit(":", 1) for ln in b0.read_text(encoding="utf-8").splitlines() if ":" in ln]
+        t += "\n" + md_table(["primer --bench (1 proceso, exp_meta/bench_inicial.txt)", "segundos"],
+                             [[w.strip(), s.strip().removesuffix(" s")] for w, s in rows0])
     if b.exists():
-        t += "\n" + md_table(["bench (1 proceso)", "segundos"], [[r["what"], _f(r["seconds"], 1)] for r in read_csv(b)])
+        t += "\n" + md_table(["último --bench (1 proceso, exp_meta/bench.csv)", "segundos"],
+                             [[r["what"], _f(r["seconds"], 1)] for r in read_csv(b)])
     return t or None
 
 
