@@ -1,8 +1,8 @@
-# Contrato AstroShield — v1.0.0
+# Contrato AstroShield — v1.0.1
 
 > Contrato único para TODAS las Olas. Ningún agente cambia firmas, esquemas, nombres de campos ni fórmulas sin seguir la §13 (política de cambio). Si algo no está definido aquí, decide de forma local dentro de tus archivos y documenta la decisión en tu reporte final.
 >
-> Versión: `CONTRACT_VERSION = "1.0.0"` (en `src/astroshield/__init__.py`). Todo JSON de escenario y de resultado lleva `"contract_version"`.
+> Versión: `CONTRACT_VERSION = "1.0.1"` (en `src/astroshield/__init__.py`). Todo JSON de escenario y de resultado lleva `"contract_version"`.
 
 ## 0. Decreto obligatorio del usuario (aplica a todos los agentes)
 
@@ -157,7 +157,7 @@ Justificación (con Σw = 13):
 
 ```json
 {
-  "contract_version": "1.0.0",
+  "contract_version": "1.0.1",
   "id": "base",
   "name": "Escenario base del enunciado",
   "description": "6 regiones, 3 zonas de desechos y 2 objetos ocupados del enunciado; 8 satélites; footprint 10°.",
@@ -213,7 +213,7 @@ Sea r = 2.7° (radio de la región) y F = footprint. Un satélite a distancia d 
 - Con F = 10°, en el **92.7 % de la esfera la aptitud no da ninguna señal**: hay mesetas de cobertura 0.
 - Búsqueda aleatoria de referencia (Monte Carlo, 20 000 configuraciones de 8 satélites uniformes, semilla 0, modo penalty): **media −0.047, percentil 95 = 0.231, máximo 0.615**, y 19.5 % de configuraciones inválidas. El óptimo es 1.0231 (§10), así que el problema queda lejos de ser trivial para la búsqueda.
 
-**Distancia de cada región a la zona prohibida más cercana (centro → borde):**
+**Distancia de cada región a la zona prohibida más cercana, elegida por distancia al centro (centro → borde):**
 
 | Región | Zona más cercana | Distancia al centro | Distancia al borde |
 |---|---|---|---|
@@ -224,6 +224,7 @@ Sea r = 2.7° (radio de la región) y F = footprint. Un satélite a distancia d 
 | Japón | objeto_b | 57.46 | 52.46 |
 | Australia | **objeto_b** | 23.76 | **18.76** |
 
+- Criterio de la tabla: la zona se elige por distancia al centro. Por distancia al borde, la más cercana a Japón es `polar_norte` (centro 58.47°, borde 50.47°), no `objeto_b` (borde 52.46°). La conclusión no cambia: la menor distancia al borde entre todas las regiones es 18.76° (Australia–objeto_b).
 - Área prohibida total = 2.72 % de la esfera. La probabilidad de que 8 satélites aleatorios sean todos válidos es (1 − 0.0272)^8 = **0.80**, así que alrededor del 20 % de la población inicial aleatoria es inválida.
 - **Hecho que no debe ocultarse (§5 del enunciado):** en el escenario base, todo centro de región está a más de F − r = 7.3° del borde de cualquier zona (el mínimo es 18.76°). Por eso **las restricciones no están activas en el óptimo base**. Sí actúan durante la búsqueda (20 % de inválidos al inicio, reparación/penalización) y **muerden** en `reducido`, `inviable` y `footprint_chico`. 3A y 4A deben reportarlo así.
 
@@ -231,7 +232,7 @@ Sea r = 2.7° (radio de la región) y F = footprint. Un satélite a distancia d 
 
 | Campo | ¿Varía? | Reglas |
 |---|---|---|
-| `contract_version` | No | `"1.0.0"` |
+| `contract_version` | No | `"1.0.1"` |
 | `id`, `name`, `description` | **Sí, obligatorio** | `id` = nombre del archivo sin `.json`, único |
 | `n_sats` | Sí | `menos_sats.json`: `4` |
 | `footprint_deg` | Sí | `footprint_chico.json`: `5.0` (sigue en el régimen de un satélite por región, pero cubrir completa exige d ≤ 2.3°) |
@@ -366,7 +367,7 @@ Todas las funciones reciben y devuelven grados. `sc` es el `dict` que devuelve `
 ### 6.1 `src/astroshield/__init__.py` (Ola 0)
 
 ```python
-CONTRACT_VERSION = "1.0.0"
+CONTRACT_VERSION = "1.0.1"
 ```
 
 ### 6.2 `src/astroshield/geometry.py` (Ola 0, implementado completo)
@@ -381,10 +382,11 @@ EARTH_RADIUS_KM = 6371.0
 def wrap_lon(lon: ArrayLike) -> np.ndarray:
     """Envuelve longitudes a [-180, 180).
 
-    Fórmula: ((lon + 180) % 360) - 180.
+    Fórmula: w = ((lon + 180) % 360) - 180; si w >= 180 (np.mod redondea a 360 cuando lon
+    queda apenas por debajo de -180), w -= 360.
     Bordes: wrap_lon(180) == -180; wrap_lon(-180) == -180; wrap_lon(540) == -180;
-    wrap_lon(-190) == 170. Acepta escalares o arrays y devuelve np.ndarray
-    (0-d para un escalar). Vectorizable.
+    wrap_lon(-190) == 170; wrap_lon(np.nextafter(-180, -inf)) == -180. Acepta escalares o
+    arrays y devuelve np.ndarray (0-d para un escalar). Vectorizable.
     """
 
 
@@ -394,8 +396,9 @@ def central_angle(lat1: ArrayLike, lon1: ArrayLike, lat2: ArrayLike, lon2: Array
     h = sin²(Δlat/2) + cos(lat1)·cos(lat2)·sin²(Δlon/2); resultado = 2·asin(sqrt(clip(h, 0, 1))).
     Pre: lat en [-90, 90]. Acepta cualquier lon (el seno absorbe la vuelta).
     Post: valores en [0, 180]; aplica broadcasting de numpy en los 4 argumentos.
-    Bordes: central_angle(0, 179.9, 0, -179.9) ≈ 0.2; central_angle(90, 0, 90, 123) == 0;
-    central_angle(90, x, 0, y) == 90 para cualquier x, y; antípodas == 180.
+    Bordes (float64): central_angle(0, 179.9, 0, -179.9) ≈ 0.2; central_angle(90, 0, 90, 123) ≈ 0
+    (error < 1e-12); central_angle(90, x, 0, y) ≈ 90 (error < 1e-9) para cualquier x, y;
+    antípodas ≈ 180 (exacto en el ecuador; cerca de 180° haversine pierde precisión, error ~2e-6°).
     """
 
 
@@ -420,8 +423,9 @@ def normalize_latlon(sats: np.ndarray) -> np.ndarray:
     """Devuelve una copia normalizada de un array (..., 2).
 
     Si lat > 90 o lat < -90, refleja sobre el polo (lat → ±180 − lat, lon → lon + 180)
-    hasta que quede en rango; después aplica wrap_lon a todas las longitudes.
-    Las filas que ya estaban en rango conservan exactamente su lat (no hay redondeo).
+    hasta que quede en rango; después aplica wrap_lon solo a las longitudes fuera de [-180, 180).
+    Los valores que ya estaban en rango (lat y lon) se conservan bit a bit: si x ya está
+    normalizado, normalize_latlon(x) es igual a x.
     No muta la entrada.
     """
 ```
@@ -826,7 +830,7 @@ schema = json.load(open("schemas/result.schema.json"))
 jsonschema.validate(json.load(open("results/mock.json")), schema)
 ```
 
-`tests/test_contract.py` (Ola 0) parametriza sobre `results/**/*.json`, excepto `reval_*.json`, y comprueba: el esquema de resultado, el esquema de escenario sobre `result["scenario"]` y sobre `scenarios/*.json`, y las invariantes 1-6 de §9.2. La invariante 7, que recalcula con el modelo, vive en `tests/test_integration.py` (2A), porque necesita model.py implementado. La viz no valida esquemas: confía en estos tests.
+`tests/test_contract.py` (Ola 0) parametriza sobre `results/**/*.json`, excepto `reval_*.json` y todo archivo bajo un directorio `escenarios/` (las copias de escenarios de 3A en `results/exp_*/escenarios/`, §4.3), y comprueba: el esquema de resultado, el esquema de escenario sobre `result["scenario"]` y sobre `scenarios/*.json`, y las invariantes 1-6 de §9.2. La invariante 7, que recalcula con el modelo, vive en `tests/test_integration.py` (2A), porque necesita model.py implementado. La viz no valida esquemas: confía en estos tests. 3A no guarda en `results/` otros JSON que no sean resultados o escenarios: los agregados van en `.csv` o `.md`.
 
 ### 9.5 `results/mock.json` (contenido exacto)
 
@@ -834,7 +838,7 @@ Es sintético, para desarrollar 1C/1B/1D en paralelo. Las coberturas, aptitudes,
 
 ```json
 {
-  "contract_version": "1.0.0",
+  "contract_version": "1.0.1",
   "id": "mock",
   "notes": "Archivo sintético para desarrollo en paralelo (Ola 1). Coberturas, aptitudes y violaciones calculadas con las fórmulas del contrato; mean, worst, diversity y n_invalid son ilustrativos.",
   "mode": "penalty",
@@ -941,6 +945,7 @@ Dependencias entre Olas: la Ola 1 arranca cuando la Ola 0 está en `main`. La Ol
 | Versión | Fecha | Cambio |
 |---|---|---|
 | 1.0.0 | 2026-10-24 | Versión inicial |
+| 1.0.1 | 2026-10-24 | PATCH previo a la publicación (P1–P5): P1 guarda de redondeo en `wrap_lon`; P2 `normalize_latlon` conserva bit a bit los valores en rango; P3 tolerancias en los bordes de `central_angle`; P4 `test_contract` excluye `results/**/escenarios/`; P5 tabla de zona más cercana por distancia al centro (nota Japón/`polar_norte`) |
 
 ## 14. Reglas Git comunes (anteponer a cada agente)
 
