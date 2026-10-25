@@ -337,8 +337,11 @@ def _git(*args) -> str:
 
 
 def write_meta(out: Path, argv: list[str], jobs: int, times: list[dict] | None, names: list[str],
-               merge: bool = False) -> None:
-    """entorno.txt, sha256.txt y tiempos.csv. Con merge (--only) conserva lo de las otras campañas."""
+               merge: bool = False, clean: bool | None = None) -> None:
+    """entorno.txt, sha256.txt y tiempos.csv. Con merge (--only) conserva lo de las otras campañas.
+
+    clean: estado de git ANTES de ejecutar (al final el árbol ya tiene los CSV nuevos).
+    """
     meta = out / "exp_meta"
     meta.mkdir(parents=True, exist_ok=True)
     import matplotlib
@@ -346,7 +349,7 @@ def write_meta(out: Path, argv: list[str], jobs: int, times: list[dict] | None, 
              f"matplotlib: {matplotlib.__version__}", f"platform: {platform.platform()}",
              f"cpu_count: {os.cpu_count()}", f"jobs: {jobs}", f"contract_version: {CONTRACT_VERSION}",
              f"git_commit: {_git('rev-parse', 'HEAD')}",
-             f"git_status_clean: {_git('status', '--porcelain') == ''}",
+             f"git_status_clean: {_git('status', '--porcelain') == '' if clean is None else clean}",
              "command: python experiments/run_experiments.py " + " ".join(argv),
              "missing_scenarios: " + ",".join(d for d in DERIVED if not scenario_path(d).exists())]
     env = meta / "entorno.txt"
@@ -444,6 +447,7 @@ def make_outputs(out: Path, figs: bool) -> None:
 def main(argv: list[str] | None = None) -> int:
     argv = sys.argv[1:] if argv is None else list(argv)
     args = build_parser().parse_args(argv)
+    clean = _git("status", "--porcelain") == ""
     out = Path(args.out)
     if args.bench:
         bench(args.jobs, out)
@@ -486,7 +490,7 @@ def main(argv: list[str] | None = None) -> int:
                           "wall_s": time.perf_counter() - t1, "jobs": args.jobs})
     print(f"representativas: {len(reps)} JSON en {time.perf_counter() - t1:.1f} s (determinismo OK)")
     run_revalidations(out)
-    write_meta(out, argv, args.jobs, camp["times"], names, merge=not args.all)
+    write_meta(out, argv, args.jobs, camp["times"], names, merge=not args.all, clean=clean)
     make_outputs(out, figs=not (args.quick or args.no_figs))
     return 0
 
