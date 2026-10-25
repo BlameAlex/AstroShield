@@ -1,5 +1,6 @@
 """Tests de los experimentos (Ola 3A). Se ejecutan con `pytest experiments`."""
 import copy
+import shutil
 import json
 from pathlib import Path
 
@@ -260,3 +261,174 @@ def test_inviable_never_covers_yucatan(quick_out):
         if r["valid"]:
             assert r["cov_yucatan"] == 0.0
             assert r["final_penalty_fitness"] <= 0.788462 + 1e-9
+
+
+# --- P5, P6 y P11: criterios (filas sintéticas) -------------------------------
+
+def _fila(sc_id, mode, seed, **kw):
+    r = {"config": f"{sc_id}_{mode}", "scenario_id": sc_id, "mode": mode, "seed": seed, "valid": True,
+         "n_covered": 6, "final_penalty_fitness": 1.0, "min_margin_deg": 18.0, "n_viol_debris": 0,
+         "n_viol_occupied": 0, "gap_opt": None, "gen_all_covered_valid": 50}
+    r.update({f"cov_{i}": 1.0 for i in ("yucatan", "amazonia", "california", "sahel", "japon", "australia")})
+    r.update(kw)
+    return r
+
+
+def _celdas(tabla, modo):
+    """Celdas de la fila `modo` de la primera tabla markdown."""
+    for ln in tabla.splitlines():
+        c = [x.strip() for x in ln.strip("|").split("|")]
+        if c[0] == modo:
+            return c
+    raise AssertionError(modo)
+
+
+def test_p5_restriccion_activa_vs_base():
+    base = [_fila("base", m, s, min_margin_deg=18.5) for m in rx.MODES for s in (42, 43, 44)]
+    red = [_fila("reducido", m, s, min_margin_deg=0.6, final_penalty_fitness=0.9) for m in rx.MODES for s in (42, 43, 44)]
+    red[0] = dict(red[0], min_margin_deg=5.0)          # una semilla lejos no mueve la mediana
+    t = analysis.t_p5(red, base)
+    for m in rx.MODES:
+        c = _celdas(t, m)
+        assert c[1] == "0.60" and c[2] == "18.50" and c[3] == "PASA"
+        assert c[8] == "0.1000"                          # caída de la mediana base − reducido
+    assert _celdas(t, "penalty")[10] == "—" and _celdas(t, "repair")[10] == "PASA"
+    lejos = [dict(r, min_margin_deg=3.0) for r in red]   # mediana ≥ 1°: la restricción no muerde
+    assert _celdas(analysis.t_p5(lejos, base), "repair")[3] == "FALLA"
+    viol = [dict(r, n_viol_debris=1) if r["mode"] == "strict" else r for r in red]
+    assert _celdas(analysis.t_p5(viol, base), "strict")[10] == "FALLA"
+    assert _celdas(analysis.t_p5(red, []), "repair")[3] == "—"   # sin base no hay comparación
+
+
+def test_p6_yucatan_y_tope():
+    ok = [_fila("inviable", m, s, n_covered=5, cov_yucatan=0.0, final_penalty_fitness=0.788462,
+                gap_opt=analysis.gap_opt("inviable", 0.788462)) for m in rx.MODES for s in (42, 43)]
+    t = analysis.t_p6(ok)
+    for m in rx.MODES:
+        c = _celdas(t, m)
+        assert c[3] == "2/2" and c[5] == "2/2" and c[6].startswith("2/2") and c[7] == "0/2" and c[8] == "PASA"
+    # un final válido que toca Yucatán, o una aptitud por encima del óptimo, es FALLA
+    toca = [dict(r, cov_yucatan=0.4) if r["mode"] == "repair" and r["seed"] == 42 else r for r in ok]
+    assert _celdas(analysis.t_p6(toca), "repair")[8] == "FALLA"
+    sobre = [dict(r, final_penalty_fitness=0.80) if r["mode"] == "strict" and r["seed"] == 43 else r for r in ok]
+    assert _celdas(analysis.t_p6(sobre), "strict")[8] == "FALLA"
+    # un final inválido de penalty que toca Yucatán no cuenta para cov_yucatan (no es válido)
+    inval = [dict(r, valid=False, cov_yucatan=1.0, final_penalty_fitness=0.52) if r["mode"] == "penalty"
+             and r["seed"] == 42 else r for r in ok]
+    assert _celdas(analysis.t_p6(inval), "penalty")[8] == "PASA"
+
+
+@pytest.mark.parametrize("fila, esperado", [
+    ({"scenario": "prioridad_cambiada", "still_valid": True, "fitness_before": 1.0, "fitness_after": 0.9}, "PASA"),
+    ({"scenario": "prioridad_cambiada", "still_valid": True, "fitness_before": 1.0, "fitness_after": 1.0}, "FALLA"),
+    ({"scenario": "menos_sats", "still_valid": False, "reasons": "n_sats: 8 != 4"}, "PASA"),
+    ({"scenario": "inviable", "still_valid": False, "violated_zones": "bloqueo_yucatan"}, "PASA"),
+    ({"scenario": "inviable", "still_valid": False, "violated_zones": "atlantico_norte"}, "FALLA"),
+    ({"scenario": "footprint_chico", "still_valid": True, "lost_regions": "sahel"}, "PASA"),
+    ({"scenario": "footprint_chico", "still_valid": True, "lost_regions": None}, "FALLA"),
+    ({"scenario": "reducido", "still_valid": False, "n_violations": 1}, "PASA"),
+    ({"scenario": "reducido", "still_valid": True, "n_violations": 1}, "FALLA"),
+])
+def test_p11_coherencia(fila, esperado):
+    assert analysis.p11_expected(fila) == esperado
+
+
+# --- P5, P6, P11 y --only de punta a punta con escenarios §4.6 en memoria ------
+
+def derivado(nombre: str) -> dict:
+    """Escenario derivado construido con la receta del contrato §4.6 (solo para tests; 1D publica los reales)."""
+    sc = copy.deepcopy(BASE)
+    sc.update(id=nombre, name=nombre, description=f"{nombre} (test, receta §4.6)")
+    if nombre == "reducido":
+        for z in sc["debris_zones"] + sc["occupied"]:
+            z["radius_deg"] *= 1.5
+        sc["debris_zones"].append({"id": "bloqueo_australia_este", "name": "Bloqueo Australia este",
+                                   "lat": -25.0, "lon": 141.0, "radius_deg": 6.0})
+    elif nombre == "inviable":
+        sc["debris_zones"].append({"id": "bloqueo_yucatan", "name": "Bloqueo Yucatán",
+                                   "lat": 20.5, "lon": -89.0, "radius_deg": 13.0})
+    elif nombre == "prioridad_cambiada":
+        for r in sc["regions"]:
+            if r["id"] == "australia":
+                r.update(priority="Alta", weight=3)
+            elif r["id"] == "california":
+                r.update(priority="Normal", weight=1)
+    elif nombre == "menos_sats":
+        sc["n_sats"] = 4
+    elif nombre == "footprint_chico":
+        sc["footprint_deg"] = 5.0
+    return model.load_scenario(sc)
+
+
+@pytest.fixture(scope="module")
+def derived_out(tmp_path_factory):
+    """--quick --only base y luego --only reducido,inviable sobre el MISMO directorio (prueba la fusión)."""
+    tmp = tmp_path_factory.mktemp("derivados")
+    scen = tmp / "scenarios"
+    scen.mkdir()
+    for d in rx.DERIVED:
+        (scen / f"{d}.json").write_text(json.dumps(derivado(d)), encoding="utf-8")
+    (scen / "base.json").write_text(json.dumps(BASE), encoding="utf-8")
+    out = tmp / "results"
+    with pytest.MonkeyPatch.context() as mp:
+        mp.setattr(rx, "scenario_path", lambda n: scen / f"{n}.json")
+        assert rx.main(["--quick", "--only", "base", "--jobs", "2", "--out", str(out)]) == 0
+        primero = {p.name: p.read_text(encoding="utf-8") for p in (out / "exp_meta").iterdir()}
+        assert rx.main(["--quick", "--only", "reducido,inviable", "--jobs", "2", "--out", str(out)]) == 0
+        # P11 sobre la solución real 100×200 de base (la de --quick no cubre lo suficiente para §4.6)
+        shutil.copy(ROOT / "results" / "exp_json" / "base_repair_s42.json", out / "exp_json")
+        assert rx.main(["--reval", "--out", str(out)]) == 0
+    return out, primero
+
+
+def test_only_merges_meta(derived_out):
+    out, primero = derived_out
+    reps = rx.read_csv(out / "exp_meta" / "representativas.csv")
+    cfgs = {r["config"] for r in reps}
+    assert {f"{c}_{m}" for c in ("base", "reducido", "inviable") for m in rx.MODES} <= cfgs
+    assert any(r["roles"] == "p1" or "p1" in r["roles"].split("+") for r in reps)
+    camps = {r["campaign"] for r in rx.read_csv(out / "exp_meta" / "tiempos.csv")}
+    assert {"base", "reducido", "inviable", "TOTAL base", "TOTAL reducido+inviable"} <= camps
+    sha = (out / "exp_meta" / "sha256.txt").read_text(encoding="utf-8")
+    for ln in primero["sha256.txt"].splitlines():          # los hashes de base no cambian
+        assert ln in sha.splitlines()
+    assert "exp_runs/reducido.csv" in sha and "exp_runs/inviable.csv" in sha
+    env = (out / "exp_meta" / "entorno.txt").read_text(encoding="utf-8")
+    assert "campaigns: base" in env.splitlines() and "campaigns: reducido,inviable" in env.splitlines()
+
+
+def test_p5_p6_tablas_y_figuras_quick(derived_out):
+    import plots
+    out, _ = derived_out
+    tab = out / "exp_tablas"
+    p6 = (tab / "p6_resumen.md").read_text(encoding="utf-8")
+    for m in rx.MODES:                                     # imposible cubrir Yucatán: vale aun con --quick
+        assert _celdas(p6, m)[8] == "PASA"
+    p5 = (tab / "p5_resumen.md").read_text(encoding="utf-8")
+    for m in ("repair", "strict"):
+        assert _celdas(p5, m)[10] == "PASA"               # 0 violaciones finales con restricción activa
+    reg = (tab / "regiones_cubiertas.md").read_text(encoding="utf-8")
+    for c in ("base", "reducido", "inviable"):
+        for m in rx.MODES:
+            assert f"| {c} | {m} |" in reg
+    pngs = {p.name for p in plots.make_all(out)}
+    assert {"p5_boxplot.png", "p5_margen.png", "p6_boxplot.png"} <= pngs
+
+
+def test_inviable_quick_never_covers_yucatan(derived_out):
+    out, _ = derived_out
+    rows = rx.read_csv(out / "exp_runs" / "inviable.csv")
+    assert len(rows) == 3 * len(rx.QUICK_SEEDS)
+    for r in rows:
+        assert r["final_penalty_fitness"] <= analysis.P6_CAP + 1e-9
+        if r["valid"]:
+            assert r["cov_yucatan"] == 0.0
+
+
+def test_p11_revalidacion(derived_out):
+    out, _ = derived_out
+    files = sorted(p.name for p in (out / "exp_reval").glob("reval_*.json"))
+    assert files == sorted(f"reval_base_repair_s42__{d}.json" for d in rx.DERIVED)
+    t = (out / "exp_tablas" / "p11_revalidacion.md").read_text(encoding="utf-8")
+    for d in rx.DERIVED:
+        assert _celdas(t, d)[-1] == "PASA", d
