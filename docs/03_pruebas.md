@@ -288,11 +288,11 @@ quedan los satélites redundantes.
 Regiones cubiertas (`% de semillas con c == 1.0 (media de c)`):
 
 <!-- tabla:regiones_cubiertas -->
-| config | yucatan | amazonia | california | sahel | japon | australia |
-|---|---|---|---|---|---|---|
-| base_penalty | 100 % (1.000) | 100 % (1.000) | 97 % (0.967) | 93 % (0.933) | 93 % (0.933) | 93 % (0.933) |
-| base_repair | 100 % (1.000) | 100 % (1.000) | 97 % (0.967) | 97 % (0.967) | 90 % (0.900) | 93 % (0.933) |
-| base_strict | 100 % (1.000) | 100 % (1.000) | 100 % (1.000) | 93 % (0.933) | 97 % (0.967) | 90 % (0.900) |
+| escenario | modo | yucatan | amazonia | california | sahel | japon | australia | 6/6 cubiertas |
+|---|---|---|---|---|---|---|---|---|
+| base | penalty | 100 % (1.000) | 100 % (1.000) | 97 % (0.967) | 93 % (0.933) | 93 % (0.933) | 93 % (0.933) | 23/30 |
+| base | repair | 100 % (1.000) | 100 % (1.000) | 97 % (0.967) | 97 % (0.967) | 90 % (0.900) | 93 % (0.933) | 25/30 |
+| base | strict | 100 % (1.000) | 100 % (1.000) | 100 % (1.000) | 93 % (0.933) | 97 % (0.967) | 90 % (0.900) | 24/30 |
 <!-- /tabla -->
 
 Dónde cae la redundancia (regiones con ≥ 2 satélites que las cubren completas):
