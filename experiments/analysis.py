@@ -11,7 +11,7 @@ import numpy as np  # noqa: E402
 
 from astroshield import geometry, model  # noqa: E402
 
-ORACLES = {"base": 1.023077, "inviable": 0.788462, "menos_sats": 0.769231,
+ORACLES = {"base": 1.023077, "inviable": 0.796154, "menos_sats": 0.769231,  # contrato 1.0.2 §10
            "footprint_chico": 1.023077, "base_f5": 1.023077, "base_f10": 1.023077}
 CURVE_KEYS = ("best", "mean", "diversity", "n_invalid", "n_covered")
 
@@ -394,7 +394,7 @@ def t_margin_zones(fin: list[dict], sc: dict) -> str:
 
 
 def t_p6(inv: list[dict]) -> str:
-    """P6: ningún final válido toca Yucatán y ninguna aptitud supera el óptimo 0.788462 (§10), por modo."""
+    """P6: ningún final válido toca Yucatán y ninguna aptitud supera el óptimo de §10 (0.796154 en 1.0.2), por modo."""
     n_reg = len(region_ids(inv))
     out = []
     for m, rs in _groups(inv, "mode").items():

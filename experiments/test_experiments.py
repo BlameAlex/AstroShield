@@ -130,7 +130,7 @@ def test_min_margin_signs(sats, esperado, tol):
 
 def test_gap_uses_oracles():
     assert analysis.gap_opt("base", 1.023077) == pytest.approx(0.0, abs=1e-12)
-    assert analysis.gap_opt("inviable", 0.788462) == pytest.approx(0.0, abs=1e-12)
+    assert analysis.gap_opt("inviable", 0.796154) == pytest.approx(0.0, abs=1e-12)
     assert analysis.gap_opt("prioridad_cambiada", 0.9) is None
 
 
@@ -260,7 +260,7 @@ def test_inviable_never_covers_yucatan(quick_out):
     for r in rx.read_csv(path):
         if r["valid"]:
             assert r["cov_yucatan"] == 0.0
-            assert r["final_penalty_fitness"] <= 0.788462 + 1e-9
+            assert r["final_penalty_fitness"] <= analysis.P6_CAP + 1e-9
 
 
 # --- P5, P6 y P11: criterios (filas sintéticas) -------------------------------
@@ -301,8 +301,8 @@ def test_p5_restriccion_activa_vs_base():
 
 
 def test_p6_yucatan_y_tope():
-    ok = [_fila("inviable", m, s, n_covered=5, cov_yucatan=0.0, final_penalty_fitness=0.788462,
-                gap_opt=analysis.gap_opt("inviable", 0.788462)) for m in rx.MODES for s in (42, 43)]
+    ok = [_fila("inviable", m, s, n_covered=5, cov_yucatan=0.0, final_penalty_fitness=0.796154,
+                gap_opt=analysis.gap_opt("inviable", 0.796154)) for m in rx.MODES for s in (42, 43)]
     t = analysis.t_p6(ok)
     for m in rx.MODES:
         c = _celdas(t, m)
