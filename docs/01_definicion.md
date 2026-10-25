@@ -468,4 +468,27 @@ La revalidación sistemática de soluciones reales y la re-optimización sembrad
 
 ## 9. Limitaciones conocidas
 
-_Pendiente._
+1. **Sin mecánica orbital.** Un satélite es un punto fijo con un casquete de radio constante. No hay altitud, movimiento, tiempo de revisita ni interferencias entre satélites. Dos satélites pueden incluso ocupar el mismo punto: las "posiciones ocupadas" del enunciado son objetos externos, no los propios satélites. Es el modelo educativo que permite el enunciado (§1.1).
+2. **La cobertura parcial es una aproximación.** La fórmula lineal de §2.3 no calcula el área solapada real entre dos casquetes, y la combinación por `max` no suma las contribuciones parciales de varios satélites. Con F = 10° el efecto práctico es nulo (§2.4), pero la cifra de cobertura parcial es indicativa, no física.
+3. **Borde numérico de la cobertura completa.** La implementación evalúa la fórmula tal cual. En d = F − r exacto, el redondeo da 0.9999999999999997 y la región cuenta como parcial, aunque el contrato (§5.1) diga "completa si d ≤ F − r". Solo afecta a posiciones justo en el borde. La corrección (un umbral explícito) corresponde al dueño de `model.py`.
+4. **La penalización cuenta violaciones, no su profundidad.** En modo penalty, un satélite que apenas roza una zona cuesta lo mismo que uno metido en su centro, y la aptitud no da pendiente para salir de la zona. El modo repair cubre ese hueco moviendo el satélite de forma explícita.
+5. **El cruce es por índice sobre un conjunto no ordenado.** Dos padres buenos con sus satélites en distinto orden (por ejemplo, el satélite 0 sobre Yucatán en uno y sobre Japón en otro) pueden producir con BLX hijos a medio camino entre las dos regiones. El intercambio de satélites completos (`p_swap` = 0.5) y el elitismo atenúan el problema, pero no lo eliminan. Una alternativa sería alinear los satélites antes de cruzar, con el costo de más complejidad.
+6. **Las restricciones no están activas en el óptimo base** (§4.4). El escenario base solo prueba que las restricciones se respetan durante la búsqueda. Para ver su efecto sobre la solución hacen falta `reducido` e `inviable`.
+7. **Los oráculos valen solo en el régimen de un satélite por región.** Todos los óptimos de §8 suponen que ningún satélite cubre completas dos regiones, lo que exige F < 18.2°. Fuera de ese régimen el óptimo es mayor. Por ejemplo, con F = 20° dos satélites en el punto medio entre Yucatán y California cubren ambas con redundancia, y `model.fitness` da 1.038462 para la configuración (2 en Yucatán–California, 2 en Amazonía, 2 en Sahel, 1 en Japón y 1 en Australia). En la prueba de sensibilidad al footprint, 1.023077 no es una cota superior para F = 20°.
+8. **Los pesos 3/2/1 son una decisión del equipo.** Otra escala (por ejemplo, una lexicográfica) daría el mismo óptimo en la base. Solo cambiaría las decisiones cuando no se puede cubrir todo (`menos_sats`, `inviable`) o al repartir la redundancia.
+9. **Costo de evaluación.** El contrato fija un objetivo de ≤ 100 µs por evaluación de `model.fitness` (8 satélites, 6 regiones). En el código actual mide unos 370 µs (media de 2000 llamadas en la máquina de desarrollo), porque las violaciones se construyen con un bucle de Python. No cambia ningún resultado, pero encarece las campañas de 30 semillas.
+
+## Trazabilidad: viñetas del Entregable 1
+
+| Viñeta del enunciado (§4, Entregable 1) | Sección |
+|---|---|
+| Cómo se representa una configuración de los 8 satélites y qué información contiene | §1 |
+| Qué significa que una región esté cubierta y cómo se determina | §2 |
+| Cómo se evaluará la calidad de una configuración y cómo se considerarán las prioridades | §3 |
+| Qué condiciones hacen que una configuración sea inválida | §4 |
+| Qué estrategia general utilizará el algoritmo evolutivo | §5 |
+| Qué parámetros necesitará el sistema y cómo se determinarán sus valores iniciales | §6 |
+| Qué condiciones se usarán para considerar que una solución es suficientemente buena | §7 |
+| Supuestos del modelo | §0 |
+| Escenarios derivados (cambio de condiciones, espacio reducido, condición inviable) y sus oráculos | §8 |
+| Limitaciones | §9 |
