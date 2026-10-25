@@ -435,3 +435,20 @@ def test_p11_revalidacion(derived_out):
     t = (out / "exp_tablas" / "p11_revalidacion.md").read_text(encoding="utf-8")
     for d in rx.DERIVED:
         assert _celdas(t, d)[-1] == "PASA", d
+
+
+@pytest.mark.parametrize("path", sorted((ROOT / "results" / "exp_json").glob("*.json")), ids=lambda p: p.stem)
+def test_exp_json_invariante_7(path):
+    """Invariante 7 (§9.2) con el model vigente sobre los resultados versionados de exp_json/."""
+    res = json.loads(path.read_text(encoding="utf-8"))
+    sc = model.load_scenario(res["scenario"])
+    fmode = "strict" if res["mode"] == "strict" else "penalty"
+    snaps = [res["initial"], res["final"]] + [
+        {"sats": h["best_sats"], "coverage": h["best_coverage"], "fitness": h["best"]} for h in res["history"]]
+    for s in snaps:
+        sats = np.array(s["sats"], dtype=float)
+        cov = model.coverage(sats, sc)
+        assert all(abs(cov[k] - v) <= 1e-9 for k, v in s["coverage"].items())
+        fit = model.fitness(sats, sc, fmode)
+        assert (s["fitness"] is None and fit == -np.inf) or abs(fit - s["fitness"]) <= 1e-9
+    assert len(model.violations(np.array(res["final"]["sats"]), sc)) == len(res["final"]["violations"])
