@@ -110,8 +110,8 @@ export function renderVerify(v) {
 // ---------------------------------------------------------------------------
 // Curvas (SVG). Devuelve un objeto con setGen(g) para mover el cursor.
 // ---------------------------------------------------------------------------
-function chart(container, lines, { height, onSeek, decimals = 3 }) {
-  const W = 400, H = height, M = { l: 46, r: 8, t: 8, b: 16 };
+function chart(container, lines, { height, onSeek, decimals = 3, width = 400 }) {
+  const W = width, H = height, M = { l: width < 300 ? 30 : 46, r: 6, t: 8, b: 16 };
   const pw = W - M.l - M.r, ph = H - M.t - M.b;
   const ext = extent(...lines.map(l => l.values));
   const n = lines[0].values.length;
@@ -171,9 +171,9 @@ export function buildCharts(result, onSeek) {
     <span>huecos = −∞ (strict)</span>`;
   $("chart-fitness").appendChild(legend);
   const minis = [
-    chart($("chart-invalid"), [{ values: series(result, "n_invalid"), cls: "s-mini" }], { height: 90, onSeek, decimals: 0 }),
-    chart($("chart-covered"), [{ values: series(result, "n_covered"), cls: "s-mini" }], { height: 90, onSeek, decimals: 0 }),
-    chart($("chart-diversity"), [{ values: series(result, "diversity"), cls: "s-mini" }], { height: 90, onSeek, decimals: 1 }),
+    chart($("chart-invalid"), [{ values: series(result, "n_invalid"), cls: "s-mini" }], { height: 90, width: 140, onSeek, decimals: 0 }),
+    chart($("chart-covered"), [{ values: series(result, "n_covered"), cls: "s-mini" }], { height: 90, width: 140, onSeek, decimals: 0 }),
+    chart($("chart-diversity"), [{ values: series(result, "diversity"), cls: "s-mini" }], { height: 90, width: 140, onSeek, decimals: 0 }),
   ];
   return { setGen: g => [fit, ...minis].forEach(c => c.setGen(Math.min(g, lastGen(result)))) };
 }
