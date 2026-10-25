@@ -2,6 +2,7 @@
 import importlib
 import inspect
 import json
+import math
 import re
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from astroshield import CONTRACT_VERSION
 
 ROOT = Path(__file__).resolve().parents[1]
 ESCENARIOS = sorted((ROOT / "scenarios").glob("*.json"))
+RESULTS_DIR = ROOT / "results"
 MAJOR = CONTRACT_VERSION.split(".")[0]
 
 
@@ -115,3 +117,54 @@ def test_escenario_base():
     assert sum(r["weight"] for r in base["regions"]) == 13
     assert base["fitness"] == {"k_penalty": 0.5, "redundancy_bonus": 0.05}
     assert (len(base["regions"]), len(base["debris_zones"]), len(base["occupied"])) == (6, 3, 2)
+
+
+# --- Archivos de resultado (§9) -------------------------------------------
+
+def _es_resultado(ruta):
+    # §9.4 (P4): fuera quedan reval_*.json y las copias de escenarios bajo results/**/escenarios/.
+    return not ruta.name.startswith("reval_") and "escenarios" not in ruta.relative_to(RESULTS_DIR).parts[:-1]
+
+
+RESULTADOS = sorted(p for p in RESULTS_DIR.rglob("*.json") if _es_resultado(p))
+
+
+@pytest.mark.parametrize("relativa, esperado", [
+    ("mock.json", True), ("exp_variacion/runs/base_repair_s1.json", True),
+    ("reval_mock__inviable.json", False), ("exp_reducido/escenarios/reducido.json", False),
+])
+def test_filtro_de_resultados(relativa, esperado):
+    assert _es_resultado(RESULTS_DIR / relativa) is esperado
+
+
+@pytest.mark.parametrize("ruta", RESULTADOS, ids=lambda p: p.relative_to(RESULTS_DIR).as_posix())
+def test_resultado_valida_esquemas(ruta):
+    res = _carga(ruta)
+    jsonschema.validate(res, _esquema("result"))
+    jsonschema.validate(res["scenario"], _esquema("scenario"))
+    _coherencia(res["scenario"])
+
+
+@pytest.mark.parametrize("ruta", RESULTADOS, ids=lambda p: p.relative_to(RESULTS_DIR).as_posix())
+def test_resultado_invariantes(ruta):
+    res = _carga(ruta)
+    h, p, sc = res["history"], res["params"], res["scenario"]
+    assert len(h) == p["gens"] + 1 and [e["gen"] for e in h] == list(range(len(h)))      # 1
+    assert res["initial"]["sats"] == h[0]["best_sats"]                                   # 2
+    if p["elitism"] >= 1:                                                                # 3
+        assert res["final"]["sats"] == h[-1]["best_sats"]
+        # Decisión local: best = None (todo -inf en strict) cuenta como -inf.
+        bests = [-math.inf if e["best"] is None else e["best"] for e in h]
+        assert all(a <= b for a, b in zip(bests, bests[1:]))
+    assert res["valid"] == (not res["final"]["violations"]
+                            and len(res["final"]["sats"]) == sc["n_sats"])               # 4
+    ids = [r["id"] for r in sc["regions"]]                                               # 5
+    assert all(list(s["coverage"]) == ids for s in (res["initial"], res["final"]))
+    assert all(list(e["best_coverage"]) == ids for e in h)
+    assert p["seed"] == res["seed"]                                                      # 6
+
+
+def test_mock_escenario_es_base():
+    mock = _carga(RESULTS_DIR / "mock.json")
+    assert mock["contract_version"] == CONTRACT_VERSION
+    assert mock["scenario"] == _carga(ROOT / "scenarios" / "base.json")
