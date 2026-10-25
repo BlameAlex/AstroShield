@@ -1,8 +1,12 @@
 """Tests de geometry.py (contrato §6.2, PATCH 1.0.1)."""
+import json
+from itertools import combinations
+from pathlib import Path
+
 import numpy as np
 import pytest
 
-from astroshield.geometry import central_angle, latlon_to_xyz, normalize_latlon, sample_sphere, wrap_lon
+from astroshield.geometry import EARTH_RADIUS_KM, central_angle, latlon_to_xyz, normalize_latlon, sample_sphere, wrap_lon
 
 
 # --- wrap_lon -------------------------------------------------------------
@@ -191,3 +195,84 @@ def test_normalize_mismo_punto_fisico():
     assert np.all((r[:, 0] >= -90) & (r[:, 0] <= 90))
     assert np.all((r[:, 1] >= -180) & (r[:, 1] < 180))
     assert np.allclose(latlon_to_xyz(r[:, 0], r[:, 1]), latlon_to_xyz(crudo[:, 0], crudo[:, 1]), atol=1e-9)
+
+
+# --- Oráculos numéricos del escenario base (contrato §4.1 y §4.5) ---------
+
+BASE = json.loads((Path(__file__).resolve().parents[1] / "scenarios" / "base.json").read_text(encoding="utf-8"))
+REGIONES = {r["id"]: (r["lat"], r["lon"]) for r in BASE["regions"]}
+ZONAS = {z["id"]: (z["lat"], z["lon"], z["radius_deg"]) for z in BASE["debris_zones"] + BASE["occupied"]}
+F, R = BASE["footprint_deg"], BASE["regions"][0]["radius_deg"]
+
+DISTANCIAS_REGIONES = {
+    ("yucatan", "amazonia"): 35.74, ("yucatan", "california"): 31.05, ("yucatan", "sahel"): 83.89,
+    ("yucatan", "japon"): 108.12, ("yucatan", "australia"): 141.16, ("amazonia", "california"): 66.79,
+    ("amazonia", "sahel"): 64.10, ("amazonia", "japon"): 142.63, ("amazonia", "australia"): 147.99,
+    ("california", "sahel"): 102.98, ("california", "japon"): 77.83, ("california", "australia"): 118.20,
+    ("sahel", "japon"): 115.38, ("sahel", "australia"): 134.94, ("japon", "australia"): 61.18,
+}
+
+# Zona más cercana por distancia al centro (P5): (zona, distancia al centro, distancia al borde).
+ZONA_MAS_CERCANA = {
+    "yucatan": ("atlantico_norte", 50.44, 38.44), "amazonia": ("atlantico_norte", 54.15, 42.15),
+    "california": ("atlantico_norte", 61.39, 49.39), "sahel": ("atlantico_norte", 42.05, 30.05),
+    "japon": ("objeto_b", 57.46, 52.46), "australia": ("objeto_b", 23.76, 18.76),
+}
+
+
+def _distancia(region, zona):
+    return float(central_angle(*REGIONES[region], *ZONAS[zona][:2]))
+
+
+def test_radio_300_km():
+    radio = np.degrees(300 / EARTH_RADIUS_KM)
+    assert radio == pytest.approx(2.698, abs=1e-3)
+    assert all(r["radius_deg"] == round(radio, 1) for r in BASE["regions"])
+
+
+@pytest.mark.parametrize("par, esperado", DISTANCIAS_REGIONES.items(), ids=lambda v: "-".join(v) if isinstance(v, tuple) else "")
+def test_distancias_entre_regiones(par, esperado):
+    a, b = par
+    assert float(central_angle(*REGIONES[a], *REGIONES[b])) == pytest.approx(esperado, abs=0.01)
+
+
+@pytest.mark.parametrize("region", ZONA_MAS_CERCANA)
+def test_zona_mas_cercana_por_centro(region):
+    zona, centro, borde = ZONA_MAS_CERCANA[region]
+    assert min(ZONAS, key=lambda z: _distancia(region, z)) == zona
+    assert _distancia(region, zona) == pytest.approx(centro, abs=0.01)
+    assert _distancia(region, zona) - ZONAS[zona][2] == pytest.approx(borde, abs=0.01)
+
+
+def test_zona_mas_cercana_por_borde_japon():
+    # Nota P5: por borde, a Japón le queda más cerca polar_norte que objeto_b.
+    por_borde = min(ZONAS, key=lambda z: _distancia("japon", z) - ZONAS[z][2])
+    assert por_borde == "polar_norte"
+    assert _distancia("japon", "polar_norte") == pytest.approx(58.47, abs=0.01)
+    assert _distancia("japon", "polar_norte") - ZONAS["polar_norte"][2] == pytest.approx(50.47, abs=0.01)
+
+
+def test_restricciones_inactivas_en_optimo_base():
+    minimo = min(_distancia(r, z) - ZONAS[z][2] for r in REGIONES for z in ZONAS)
+    assert minimo == pytest.approx(18.76, abs=0.01)
+    assert minimo > F - R
+
+
+def test_regimen_no_trivial():
+    separacion = min(float(central_angle(*REGIONES[a], *REGIONES[b])) for a, b in combinations(REGIONES, 2))
+    assert separacion == pytest.approx(31.05, abs=0.01)
+    assert separacion > 2 * (F + R)           # ningún satélite toca dos regiones
+    assert separacion / 2 + R > F             # el régimen trivial empieza en 18.2°
+
+
+def test_area_prohibida():
+    casquete = lambda theta: (1 - np.cos(np.radians(theta))) / 2
+    assert casquete(F - R) == pytest.approx(0.0041, abs=1e-4)
+    assert casquete(F + R) == pytest.approx(0.0122, abs=1e-4)
+    analitica = sum(casquete(r) for *_, r in ZONAS.values())
+    assert analitica == pytest.approx(0.0272, abs=5e-4)
+    puntos = sample_sphere(200_000, np.random.default_rng(0))
+    dentro = np.zeros(len(puntos), dtype=bool)
+    for lat, lon, radio in ZONAS.values():
+        dentro |= central_angle(puntos[:, 0], puntos[:, 1], lat, lon) < radio
+    assert dentro.mean() == pytest.approx(analitica, abs=2e-3)
