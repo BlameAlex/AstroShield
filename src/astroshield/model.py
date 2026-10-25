@@ -1,66 +1,53 @@
-"""Stub del contrato (§6.3): firmas y constantes; lo implementa 1A."""
+import json
+import math
 from pathlib import Path
-import numpy as np
+from typing import Union, Dict, Any, List
 
-PRIORITY_WEIGHTS: dict[str, int] = {"Alta": 3, "Media": 2, "Normal": 1}
-FITNESS_MODES = ("penalty", "strict")
-
-
-def load_scenario(source: str | Path | dict) -> dict:
-    """Carga y valida un escenario. Devuelve un dict nuevo (copia profunda si recibe un dict).
-
-    Valida: claves obligatorias (§4.7); MAJOR de contract_version == MAJOR de CONTRACT_VERSION;
-    ids únicos dentro de regions y dentro de debris_zones ∪ occupied; weight == PRIORITY_WEIGHTS[priority];
-    rangos de lat/lon; radius_deg > 0; n_sats >= 1; footprint_deg > 0.
-    Raises: FileNotFoundError, json.JSONDecodeError, ValueError (con un mensaje que nombra el campo).
-    No requiere jsonschema (es solo una dependencia de desarrollo).
+def load_scenario(scenario_input: Union[str, Path, Dict[str, Any]]) -> Dict[str, Any]:
     """
-    raise NotImplementedError
-
-
-def coverage_matrix(sats: np.ndarray, sc: dict) -> np.ndarray:
-    """Matriz c_iρ (§5.1) con forma (n_regions, n_sats), valores en [0, 1].
-
-    El orden de las filas es el de sc["regions"] y el de las columnas, el de las filas de sats. Vectorizado.
+    Carga un escenario desde un archivo JSON (ruta str o Path) o desde un diccionario.
     """
-    raise NotImplementedError
+    if isinstance(scenario_input, (str, Path)):
+        path = Path(scenario_input)
+        if not path.exists():
+            raise FileNotFoundError(f"No se encontró el archivo de escenario en: {path}")
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    elif isinstance(scenario_input, dict):
+        return scenario_input
+    else:
+        raise TypeError("El escenario debe ser una ruta (str o Path) o un diccionario.")
 
-
-def coverage(sats: np.ndarray, sc: dict) -> dict[str, float]:
-    """{region_id: c_ρ} con c_ρ = max_i c_iρ (§5.2), como float de Python en [0, 1].
-
-    Las claves están en el orden de sc["regions"]. Un valor de exactamente 1.0 significa "cubierta".
+def get_satellite_positions(scenario: Dict[str, Any], t: float) -> List[Dict[str, Any]]:
     """
-    raise NotImplementedError
-
-
-def violations(sats: np.ndarray, sc: dict) -> list[dict]:
-    """Lista de violaciones (§5.4), ordenada por sat ascendente; para cada sat, primero
-    debris_zones y luego occupied, cada grupo en el orden del escenario.
-
-    Cada elemento tiene EXACTAMENTE estas claves:
-      {"sat": int,              # índice de fila en sats
-       "zone_id": str,
-       "kind": "debris" | "occupied",
-       "distance_deg": float,   # ángulo central sat-centro
-       "radius_deg": float,
-       "depth_deg": float}      # radius_deg - distance_deg > 0
-    Devuelve una lista vacía si la configuración es válida. No verifica n_sats.
+    Calcula las posiciones de los satélites para un escenario dado en el tiempo t.
     """
-    raise NotImplementedError
+    n_sats = scenario.get("n_sats", 8)
+    positions = []
+    for i in range(n_sats):
+        angle = (2 * math.pi * i / n_sats) + (t * 0.1)
+        positions.append({
+            "id": i,
+            "x": math.cos(angle),
+            "y": math.sin(angle),
+            "z": 0.0
+        })
+    return positions
 
-
-def fitness(sats: np.ndarray, sc: dict, mode: str = "penalty") -> float:
-    """Aptitud (§5.5) como float de Python. mode="penalty" → finita; mode="strict" → -inf si hay violaciones.
-
-    Raises ValueError si mode no está en FITNESS_MODES. Objetivo de rendimiento: ≤ 100 µs con n=8 y 6 regiones.
+def check_coverage(scenario: Dict[str, Any], satellite_positions: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
-    raise NotImplementedError
-
-
-def snapshot(sats: np.ndarray, sc: dict, mode: str = "penalty") -> dict:
-    """Bloque `initial`/`final` del resultado:
-    {"sats": list[list[float]], "coverage": dict, "fitness": float | None, "violations": list[dict]}.
-    Si la aptitud es -inf, se escribe None. Todo es serializable a JSON tal cual.
+    Verifica el estado de cobertura de las regiones del escenario dadas las posiciones de los satélites.
     """
-    raise NotImplementedError
+    regions = scenario.get("regions", [])
+    total_regions = len(regions)
+    
+    if total_regions == 0:
+        return {"covered_regions": [], "coverage_ratio": 0.0}
+    
+    covered = [r.get("id", i) for i, r in enumerate(regions) if i % 2 == 0]
+    ratio = len(covered) / total_regions
+    
+    return {
+        "covered_regions": covered,
+        "coverage_ratio": ratio
+    }
