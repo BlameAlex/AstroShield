@@ -1,6 +1,0 @@
-scenario,still_valid,reasons,fitness_before,fitness_after,lost_regions,gained_regions,n_violations,violated_zones
-reducido,True,,1.0076923076923077,1.0076923076923077,,,0,
-inviable,False,violations: 1,1.0076923076923077,0.5076923076923077,,,1,bloqueo_yucatan
-prioridad_cambiada,True,,1.0076923076923077,1.0071428571428571,,,0,
-menos_sats,False,n_sats: 8 != 4,1.0076923076923077,1.0076923076923077,,,0,
-footprint_chico,True,,1.0076923076923077,0.5838354715077299,yucatan california sahel japon australia,,0,
