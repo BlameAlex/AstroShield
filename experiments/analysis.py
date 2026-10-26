@@ -546,8 +546,12 @@ def write_tables(out: Path) -> list[Path]:
     if feasible:
         tables["p3_violaciones"] = t_viol(feasible, "debris")
         tables["p4_violaciones"] = t_viol(feasible, "occupied")
+    others = {c: r for c in ("prioridad_cambiada", "menos_sats", "footprint_chico") if (r := load(c))}
+    allr = {**allm, **others}
+    if others:
+        tables["otros_escenarios"] = "\n".join(t_p7(r) for r in others.values())
     if allm:
-        tables["regiones_cubiertas"] = t_regions(allm)
+        tables["regiones_cubiertas"] = t_regions(allr)
         tables["p8_modos"] = t_p8(allm)
     if red:
         tables["p5_resumen"] = t_p5(red, base)

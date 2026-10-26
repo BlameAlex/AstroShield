@@ -45,7 +45,8 @@ POP_BUDGET = 20000          # gens = POP_BUDGET / P  ->  P·(gens+1) ≈ 20 100 
 FOOTPRINT_GENS = 100
 RANDOM_EVALS = 20100        # mismo presupuesto que el AG por defecto: 100 · (200 + 1)
 DERIVED = ("reducido", "inviable", "prioridad_cambiada", "menos_sats", "footprint_chico")
-CAMPAIGNS = ("base", "reducido", "inviable", "footprint", "poblacion", "aleatoria")
+SCENARIO_CAMPAIGNS = ("base", "reducido", "inviable", "prioridad_cambiada", "menos_sats", "footprint_chico")
+CAMPAIGNS = SCENARIO_CAMPAIGNS + ("footprint", "poblacion", "aleatoria")
 
 # --quick: lo que corren los tests (segundos, no minutos)
 QUICK_PARAMS = {"pop_size": 30, "gens": 10}
@@ -76,7 +77,7 @@ def campaign_tasks(name: str, quick: bool = False) -> list[dict]:
     """Lista ordenada de tareas de una campaña. Vacía si falta el escenario derivado (1D)."""
     seeds = QUICK_SEEDS if quick else SEEDS
     ga_params = dict(QUICK_PARAMS) if quick else {}
-    if name in ("base", "reducido", "inviable"):
+    if name in SCENARIO_CAMPAIGNS:
         path = scenario_path(name)
         if not path.exists():
             return []
@@ -434,6 +435,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--reval", action="store_true", help="solo P11: revalida exp_json/base_repair_s42.json")
     p.add_argument("--tables", action="store_true", help="solo regenera tablas y figuras desde exp_runs/")
     p.add_argument("--no-figs", action="store_true", help="no genera figuras (implícito con --quick)")
+    p.add_argument("--seeds", type=int, default=None, help="usa solo las primeras N semillas (42, 43, …)")
     return p
 
 
@@ -449,6 +451,9 @@ def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
     clean = _git("status", "--porcelain") == ""
     out = Path(args.out)
+    if args.seeds:
+        global SEEDS
+        SEEDS = SEEDS[:args.seeds]
     if args.bench:
         bench(args.jobs, out)
         return 0
