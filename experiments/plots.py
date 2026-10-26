@@ -43,7 +43,12 @@ def _mode_of(cfg: str) -> str:
     return cfg.rsplit("_", 1)[-1]
 
 
+def _n_seeds(rows: list[dict]) -> int:
+    return len({r["seed"] for r in rows})
+
+
 def p2_curves(out: Path, dest: Path) -> None:
+    n = _n_seeds(_rows(out, "base"))
     cur = _curves(out, "base")
     rnd = _curves(out, "aleatoria").get("base_aleatoria")
     if not cur:
@@ -59,14 +64,14 @@ def p2_curves(out: Path, dest: Path) -> None:
         axes[0].plot(_arr(rnd, "gen"), _arr(rnd, "best_median"), color=NEUTRAL, lw=2, ls="--",
                      label="aleatoria, mismo presupuesto")
     axes[0].axhline(analysis.ORACLES["base"], color=INK, lw=1, ls=":", label="óptimo 1.023077")
-    axes[0].set(title="Mejor aptitud por generación (30 semillas)", xlabel="generación", ylabel="aptitud del mejor")
-    axes[1].set(title="Aptitud media de la población (media de 30 semillas)", xlabel="generación",
+    axes[0].set(title=f"Mejor aptitud por generación ({n} semillas)", xlabel="generación", ylabel="aptitud del mejor")
+    axes[1].set(title=f"Aptitud media de la población (media de {n} semillas)", xlabel="generación",
                 ylabel="aptitud media (finitas)")
     axes[0].legend(loc="lower right")
     axes[1].legend(loc="lower right")
     fig.savefig(dest / "p2_curvas_base.png", **SAVE)
     plt.close(fig)
-    for key, title, fname in (("diversity_mean", "Diversidad (°, media de 30 semillas)", "p2_diversidad.png"),
+    for key, title, fname in (("diversity_mean", f"Diversidad (°, media de {n} semillas)", "p2_diversidad.png"),
                               ("n_invalid_mean", "Individuos inválidos por generación (de 100)", "p2_invalidos.png")):
         fig, ax = plt.subplots(figsize=(6, 3.6))
         for cfg, rows in cur.items():
@@ -103,7 +108,7 @@ def p7_box(out: Path, dest: Path) -> None:
          [MODE_COLOR.get(_mode_of(k), NEUTRAL) for k in g])
     ax.axhline(analysis.ORACLES["base"], color=INK, lw=1, ls=":", label="óptimo 1.023077")
     ax.axhline(1.0, color=NEUTRAL, lw=1, ls="--", label="umbral 6/6 (1.0)")
-    ax.set(title="Aptitud final (penalty) en base, 30 semillas", ylabel="aptitud final")
+    ax.set(title=f"Aptitud final (penalty) en base, {_n_seeds(rows)} semillas", ylabel="aptitud final")
     ax.legend(loc="lower left")
     fig.savefig(dest / "p7_boxplot.png", **SAVE)
     plt.close(fig)
@@ -119,7 +124,7 @@ def p5_box(out: Path, dest: Path) -> None:
          [MODE_COLOR.get(_mode_of(k), NEUTRAL) for k in g])
     ax.axhline(analysis.ORACLES["base"], color=INK, lw=1, ls=":", label="óptimo base 1.023077")
     ax.axhline(1.0, color=NEUTRAL, lw=1, ls="--", label="umbral 6/6 (1.0)")
-    ax.set(title="P5 · Aptitud final (penalty): base vs reducido, 30 semillas", ylabel="aptitud final")
+    ax.set(title=f"P5 · Aptitud final (penalty): base vs reducido, {_n_seeds(red)} semillas", ylabel="aptitud final")
     ax.legend(loc="lower left")
     fig.savefig(dest / "p5_boxplot.png", **SAVE)
     plt.close(fig)
@@ -156,7 +161,7 @@ def p6_box(out: Path, dest: Path) -> None:
     _box(ax, {k: _arr(v, "final_penalty_fitness") for k, v in g.items()},
          [MODE_COLOR.get(_mode_of(k), NEUTRAL) for k in g])
     ax.axhline(analysis.P6_CAP, color=INK, lw=1, ls=":", label=f"óptimo inviable {analysis.P6_CAP:g} (§10)")
-    ax.set(title="P6 · Aptitud final (penalty) en inviable, 30 semillas", ylabel="aptitud final")
+    ax.set(title=f"P6 · Aptitud final (penalty) en inviable, {_n_seeds(inv)} semillas", ylabel="aptitud final")
     ax.legend(loc="lower left")
     fig.savefig(dest / "p6_boxplot.png", **SAVE)
     plt.close(fig)
@@ -241,7 +246,7 @@ def p9_footprint(out: Path, dest: Path) -> None:
                      lw=2, marker="o", ms=7, capsize=3)
     axes[0].axvline(18.2, color=NEUTRAL, ls="--", lw=1, label="régimen trivial (18.2°)")
     axes[0].set(title="Éxito (válida y 6/6) vs footprint, IC Wilson 95 %", xlabel="footprint F (°)",
-                ylabel="fracción de 30 semillas", ylim=(-0.05, 1.05))
+                ylabel=f"fracción de {_n_seeds(rows)} semillas", ylim=(-0.05, 1.05))
     axes[0].legend(loc="lower right")
     _box(axes[1], {f"{f:g}": _arr(v, "final_penalty_fitness") for f, (_, v) in zip(fs, g)},
          [MODE_COLOR["repair"]] * len(g))
