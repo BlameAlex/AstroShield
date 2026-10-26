@@ -1,7 +1,0 @@
-what,seconds
-run base penalty 100x200,2178.5158994001104
-run base repair 100x200,1370.424292300013
-run base strict 100x200,40.251598299946636
-aleatoria 20100,32.94195559993386
-proyeccion cpu --all (s),397005.37428670627
-proyeccion reloj --all con 16 procesos (s),24812.83589291914

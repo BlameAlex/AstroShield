@@ -1,15 +1,15 @@
 {
-  "contract_version": "1.0.1",
+  "contract_version": "1.0.2",
   "id": "base_strict_s42",
   "mode": "strict",
   "seed": 42,
   "valid": true,
   "env": {
-    "python": "3.11.9",
-    "numpy": "2.3.4"
+    "python": "3.14.8",
+    "numpy": "2.5.4"
   },
   "scenario": {
-    "contract_version": "1.0.1",
+    "contract_version": "1.0.2",
     "id": "base",
     "name": "Escenario base del enunciado",
     "description": "6 regiones, 3 zonas de desechos y 2 objetos ocupados del enunciado; 8 satélites; footprint 10°.",
@@ -639,9 +639,9 @@
     {
       "gen": 8,
       "best": 0.7692307692307693,
-      "mean": 0.4993874072139527,
+      "mean": 0.49938740721395275,
       "worst": 0.09342073823526859,
-      "diversity": 42.26491258613345,
+      "diversity": 42.264912586133455,
       "n_invalid": 6,
       "n_covered": 4,
       "best_sats": [
@@ -899,7 +899,7 @@
     {
       "gen": 13,
       "best": 0.9230769230769231,
-      "mean": 0.7110202814312343,
+      "mean": 0.7110202814312344,
       "worst": 0.34623323944151174,
       "diversity": 30.66292971554952,
       "n_invalid": 8,
@@ -1785,7 +1785,7 @@
       "best": 1.0115384615384615,
       "mean": 0.8777275254332538,
       "worst": 0.5586502610308952,
-      "diversity": 24.59800423738462,
+      "diversity": 24.598004237384625,
       "n_invalid": 3,
       "n_covered": 6,
       "best_sats": [
@@ -2149,7 +2149,7 @@
       "best": 1.0115384615384615,
       "mean": 0.9164236588474186,
       "worst": 0.6117260356024345,
-      "diversity": 12.770689275009987,
+      "diversity": 12.770689275009985,
       "n_invalid": 0,
       "n_covered": 6,
       "best_sats": [
@@ -2252,7 +2252,7 @@
       "gen": 39,
       "best": 1.0115384615384615,
       "mean": 0.9437647662199715,
-      "worst": 0.5956486594981171,
+      "worst": 0.5956486594981172,
       "diversity": 10.304664328857655,
       "n_invalid": 1,
       "n_covered": 6,
@@ -3188,7 +3188,7 @@
       "gen": 57,
       "best": 1.0192307692307692,
       "mean": 0.9643162555225671,
-      "worst": 0.5871510985377486,
+      "worst": 0.5871510985377488,
       "diversity": 12.080536101686011,
       "n_invalid": 1,
       "n_covered": 6,
@@ -6776,7 +6776,7 @@
       "gen": 126,
       "best": 1.0192307692307692,
       "mean": 0.9770298913307914,
-      "worst": 0.6386787946451316,
+      "worst": 0.6386787946451314,
       "diversity": 6.2542236960623,
       "n_invalid": 0,
       "n_covered": 6,
@@ -6985,7 +6985,7 @@
       "best": 1.0192307692307692,
       "mean": 0.9511257753434186,
       "worst": 0.7077054057063591,
-      "diversity": 6.6134051216096035,
+      "diversity": 6.613405121609604,
       "n_invalid": 0,
       "n_covered": 6,
       "best_sats": [
@@ -8597,7 +8597,7 @@
       "best": 1.0192307692307692,
       "mean": 0.9621610315981722,
       "worst": 0.6153846153846154,
-      "diversity": 7.024936381476544,
+      "diversity": 7.024936381476545,
       "n_invalid": 0,
       "n_covered": 6,
       "best_sats": [
@@ -9065,7 +9065,7 @@
       "best": 1.0192307692307692,
       "mean": 0.9692654562617201,
       "worst": 0.6295192972056476,
-      "diversity": 6.602061923096758,
+      "diversity": 6.602061923096759,
       "n_invalid": 0,
       "n_covered": 6,
       "best_sats": [

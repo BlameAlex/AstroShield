@@ -1,15 +1,15 @@
 {
-  "contract_version": "1.0.1",
+  "contract_version": "1.0.2",
   "id": "base_penalty_s42",
   "mode": "penalty",
   "seed": 42,
   "valid": true,
   "env": {
-    "python": "3.11.9",
-    "numpy": "2.3.4"
+    "python": "3.14.8",
+    "numpy": "2.5.4"
   },
   "scenario": {
-    "contract_version": "1.0.1",
+    "contract_version": "1.0.2",
     "id": "base",
     "name": "Escenario base del enunciado",
     "description": "6 regiones, 3 zonas de desechos y 2 objetos ocupados del enunciado; 8 satélites; footprint 10°.",
@@ -1577,7 +1577,7 @@
       "best": 0.9346153846153846,
       "mean": 0.8901768964386559,
       "worst": 0.6941289161289929,
-      "diversity": 12.449853350042298,
+      "diversity": 12.4498533500423,
       "n_invalid": 0,
       "n_covered": 5,
       "best_sats": [
@@ -3241,7 +3241,7 @@
       "best": 0.9423076923076924,
       "mean": 0.8729955379036202,
       "worst": 0.28846153846153855,
-      "diversity": 8.102605383704978,
+      "diversity": 8.102605383704976,
       "n_invalid": 2,
       "n_covered": 5,
       "best_sats": [
@@ -3761,7 +3761,7 @@
       "best": 0.9423076923076924,
       "mean": 0.894177112069139,
       "worst": 0.6405217609161112,
-      "diversity": 7.447001682133854,
+      "diversity": 7.447001682133852,
       "n_invalid": 0,
       "n_covered": 5,
       "best_sats": [
@@ -6153,7 +6153,7 @@
       "best": 0.9423076923076924,
       "mean": 0.9049370481723981,
       "worst": 0.6717695797525712,
-      "diversity": 7.936735848927599,
+      "diversity": 7.936735848927601,
       "n_invalid": 0,
       "n_covered": 5,
       "best_sats": [
@@ -6257,7 +6257,7 @@
       "best": 0.9423076923076924,
       "mean": 0.8998571680029832,
       "worst": 0.6772693489572472,
-      "diversity": 7.781231715827557,
+      "diversity": 7.7812317158275555,
       "n_invalid": 0,
       "n_covered": 5,
       "best_sats": [
@@ -10573,7 +10573,7 @@
       "best": 1.0192307692307692,
       "mean": 0.9743290108953288,
       "worst": 0.7807692307692308,
-      "diversity": 6.619715792017244,
+      "diversity": 6.619715792017243,
       "n_invalid": 0,
       "n_covered": 6,
       "best_sats": [

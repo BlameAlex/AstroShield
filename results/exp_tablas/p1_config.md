@@ -22,4 +22,4 @@
 |---|---|---|---|---|---|---|
 | sí | 6/6 | 0.461849 | 1.007692 | 1.023077 | 0.015385 | 0 |
 
-Comparación con `results/base_repair_s42.json` (Ola 2, numpy 2.3.4): misma configuración final y aptitud = **sí**.
+Comparación con `results/base_repair_s42.json` (Ola 2, numpy 2.5.4): misma configuración final y aptitud = **sí**.

@@ -1,4 +1,4 @@
-"""Inserta las tablas generadas (results/exp_tablas/*.md) en docs/03_pruebas.md.
+"""Inserta las tablas generadas (results/exp_tablas/*.md) en README.md.
 
     python experiments/report.py            # reescribe el documento
     python experiments/report.py --check    # sale con 1 si el documento no está sincronizado
@@ -31,7 +31,7 @@ def render(doc: str, tables_dir: Path) -> tuple[str, list[str]]:
 
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("--doc", default=str(ROOT / "docs" / "03_pruebas.md"))
+    ap.add_argument("--doc", default=str(ROOT / "README.md"))
     ap.add_argument("--tables", default=str(ROOT / "results" / "exp_tablas"))
     ap.add_argument("--check", action="store_true")
     a = ap.parse_args(argv)

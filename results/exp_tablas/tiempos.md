@@ -1,26 +1,11 @@
 | campaña | ejecuciones | Σ tiempo por ejecución (s) | s por ejecución (media) | reloj total (s) | procesos |
 |---|---|---|---|---|---|
-| base | 90 | 10485.5 | 116.51 | — | — |
-| footprint | 180 | 13913.7 | 77.30 | — | — |
-| poblacion | 120 | 16828.5 | 140.24 | — | — |
-| aleatoria | 30 | 1767.9 | 58.93 | — | — |
-| TOTAL | 420 | 42995.5 | — | 2849.5 | 16 |
-| representativas | 20 | — | — | 231.9 | 16 |
-
-| primer --bench (1 proceso, exp_meta/bench_inicial.txt) | segundos |
-|---|---|
-| run base penalty 100x200 | 9.5 |
-| run base repair 100x200 | 16.1 |
-| run base strict 100x200 | 14.2 |
-| aleatoria 20100 | 449.8 |
-| proyeccion cpu --all (s) | 18075.7 |
-| proyeccion reloj --all con 16 procesos (s) | 1129.7 |
-
-| último --bench (1 proceso, exp_meta/bench.csv) | segundos |
-|---|---|
-| run base penalty 100x200 | 2178.5 |
-| run base repair 100x200 | 1370.4 |
-| run base strict 100x200 | 40.3 |
-| aleatoria 20100 | 32.9 |
-| proyeccion cpu --all (s) | 397005.4 |
-| proyeccion reloj --all con 16 procesos (s) | 24812.8 |
+| base | 9 | 372.2 | 41.36 | — | — |
+| reducido | 9 | 431.2 | 47.91 | — | — |
+| inviable | 9 | 429.9 | 47.76 | — | — |
+| prioridad_cambiada | 9 | 379.6 | 42.18 | — | — |
+| menos_sats | 9 | 211.6 | 23.51 | — | — |
+| footprint_chico | 9 | 294.1 | 32.68 | — | — |
+| aleatoria | 3 | 56.0 | 18.65 | — | — |
+| TOTAL base+reducido+inviable+prioridad_cambiada+menos_sats+footprint_chico+aleatoria | 57 | 2174.6 | — | 146.3 | 16 |
+| representativas base+reducido+inviable+prioridad_cambiada+menos_sats+footprint_chico+aleatoria | 35 | — | — | 99.5 | 16 |
