@@ -42,6 +42,9 @@ export function capPolygon(lat, lon, radiusDeg, n = 64) {
     const p2 = Math.asin(Math.sin(p1) * Math.cos(d) + Math.cos(p1) * Math.sin(d) * Math.cos(th));
     let lng = lon + Math.atan2(Math.sin(th) * Math.sin(d) * Math.cos(p1),
                                Math.cos(d) - Math.sin(p1) * Math.sin(p2)) * DEG;
+    // Vértice exactamente en un polo (casquete tangente al polo, p. ej. lat 78 + radio 12):
+    // la longitud no está definida y atan2 devuelve ruido; se hereda la del vértice anterior.
+    if (Math.abs(Math.abs(p2) - Math.PI / 2) < 1e-12) lng = prev ?? lon;
     if (prev !== null) {
       while (lng - prev > 180) lng -= 360;
       while (lng - prev < -180) lng += 360;
@@ -49,7 +52,9 @@ export function capPolygon(lat, lon, radiusDeg, n = 64) {
     ring.push([lng, p2 * DEG]);
     prev = lng;
   }
-  const north = lat + radiusDeg >= 90, south = lat - radiusDeg <= -90;
+  // Solo si el casquete CONTIENE el polo (estricto): si apenas lo toca, el anillo ya pasa por él.
+  const EPS = 1e-9;
+  const north = lat + radiusDeg > 90 + EPS, south = lat - radiusDeg < -90 - EPS;
   if (north || south) {
     const pole = north ? 90 : -90;
     const last = ring[ring.length - 1][0], first = ring[0][0];

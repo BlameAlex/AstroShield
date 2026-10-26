@@ -34,3 +34,13 @@ test("capPolygon around a pole closes through the pole", () => {
   const s = checkCap(-88, -170, 5);
   assert.ok(s.some(([, la]) => la === -90));
 });
+
+test("capPolygon tangent to a pole (lat + radius == 90) does not wrap the globe", () => {
+  // reducido.json: polar_norte lat 78, radio 12 -> toca el polo sin contenerlo.
+  for (const [lat, lon, r] of [[78, 30, 12], [-78, 30, 12]]) {
+    const ring = checkCap(lat, lon, r);
+    assert.equal(ring.length, 65, "sin vértices extra de cierre por el polo");
+    const span = Math.max(...ring.map(p => p[0])) - Math.min(...ring.map(p => p[0]));
+    assert.ok(span < 270, `la extensión en lng (${span}) no debe abarcar el globo`);
+  }
+});
