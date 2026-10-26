@@ -1,0 +1,12 @@
+campaigns: base,reducido,inviable,prioridad_cambiada,menos_sats,footprint_chico,aleatoria
+python: 3.14.8
+numpy: 2.5.4
+matplotlib: 3.11.2
+platform: Linux-7.2.10-200.fc44.x86_64-x86_64-with-glibc2.43
+cpu_count: 16
+jobs: 16
+contract_version: 1.0.2
+git_commit: 89da0e0af139866a54fa19396a74759ca3da43f6
+git_status_clean: False
+command: python experiments/run_experiments.py --only base,reducido,inviable,prioridad_cambiada,menos_sats,footprint_chico,aleatoria --seeds 3 --jobs 16
+missing_scenarios: 

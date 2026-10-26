@@ -1,0 +1,37 @@
+| archivo | config | semilla | rol | aptitud penalty |
+|---|---|---|---|---|
+| `exp_json/base_penalty_s42.json` | base_penalty | 42 | best | 1.019231 |
+| `exp_json/base_penalty_s43.json` | base_penalty | 43 | worst | 1.011538 |
+| `exp_json/base_penalty_s44.json` | base_penalty | 44 | median | 1.015385 |
+| `exp_json/base_repair_s42.json` | base_repair | 42 | median+p1 | 1.007692 |
+| `exp_json/base_repair_s43.json` | base_repair | 43 | best | 1.015385 |
+| `exp_json/base_repair_s44.json` | base_repair | 44 | worst | 0.861538 |
+| `exp_json/base_strict_s42.json` | base_strict | 42 | best | 1.019231 |
+| `exp_json/base_strict_s43.json` | base_strict | 43 | worst | 1.011538 |
+| `exp_json/base_strict_s44.json` | base_strict | 44 | median | 1.015385 |
+| `exp_json/reducido_penalty_s42.json` | reducido_penalty | 42 | best | 1.007692 |
+| `exp_json/reducido_penalty_s43.json` | reducido_penalty | 43 | median | 1.003846 |
+| `exp_json/reducido_penalty_s44.json` | reducido_penalty | 44 | worst | 0.861538 |
+| `exp_json/reducido_repair_s42.json` | reducido_repair | 42 | best+median | 1.019231 |
+| `exp_json/reducido_repair_s44.json` | reducido_repair | 44 | worst | 1.015385 |
+| `exp_json/reducido_strict_s42.json` | reducido_strict | 42 | best | 1.015385 |
+| `exp_json/reducido_strict_s43.json` | reducido_strict | 43 | median | 1.011538 |
+| `exp_json/reducido_strict_s44.json` | reducido_strict | 44 | worst | 1.003846 |
+| `exp_json/inviable_penalty_s42.json` | inviable_penalty | 42 | median | 0.788462 |
+| `exp_json/inviable_penalty_s43.json` | inviable_penalty | 43 | worst | 0.784615 |
+| `exp_json/inviable_penalty_s44.json` | inviable_penalty | 44 | best | 0.792308 |
+| `exp_json/inviable_repair_s42.json` | inviable_repair | 42 | median | 0.788462 |
+| `exp_json/inviable_repair_s43.json` | inviable_repair | 43 | worst | 0.773077 |
+| `exp_json/inviable_repair_s44.json` | inviable_repair | 44 | best | 0.796154 |
+| `exp_json/inviable_strict_s42.json` | inviable_strict | 42 | worst | 0.788462 |
+| `exp_json/inviable_strict_s43.json` | inviable_strict | 43 | median | 0.788462 |
+| `exp_json/inviable_strict_s44.json` | inviable_strict | 44 | best | 0.792308 |
+| `exp_json/prioridad_cambiada_penalty_s42.json` | prioridad_cambiada_penalty | 42 | median | 1.021429 |
+| `exp_json/prioridad_cambiada_repair_s43.json` | prioridad_cambiada_repair | 43 | median | 1.021429 |
+| `exp_json/prioridad_cambiada_strict_s43.json` | prioridad_cambiada_strict | 43 | median | 1.010714 |
+| `exp_json/menos_sats_penalty_s43.json` | menos_sats_penalty | 43 | median | 0.769231 |
+| `exp_json/menos_sats_repair_s43.json` | menos_sats_repair | 43 | median | 0.692308 |
+| `exp_json/menos_sats_strict_s43.json` | menos_sats_strict | 43 | median | 0.769231 |
+| `exp_json/footprint_chico_penalty_s43.json` | footprint_chico_penalty | 43 | median | 0.934615 |
+| `exp_json/footprint_chico_repair_s43.json` | footprint_chico_repair | 43 | median | 1.007692 |
+| `exp_json/footprint_chico_strict_s42.json` | footprint_chico_strict | 42 | median | 1.007692 |

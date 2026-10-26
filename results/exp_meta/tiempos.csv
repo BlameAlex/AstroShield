@@ -1,0 +1,10 @@
+campaign,n_tasks,cpu_s,mean_task_s,wall_s,jobs
+base,9,375.91668964699784,41.76852107188865,,
+reducido,9,431.580774080001,47.95341934222233,,
+inviable,9,440.3732050369981,48.93035611522201,,
+prioridad_cambiada,9,396.74389587599944,44.08265509733327,,
+menos_sats,9,229.8726127390073,25.541401415445257,,
+footprint_chico,9,314.3974546349964,34.9330505149996,,
+aleatoria,3,59.627083151997795,19.875694383999264,,
+TOTAL base+reducido+inviable+prioridad_cambiada+menos_sats+footprint_chico+aleatoria,57,2248.511715165998,,151.29530930499823,16
+representativas base+reducido+inviable+prioridad_cambiada+menos_sats+footprint_chico+aleatoria,35,,,96.95446389299832,16
