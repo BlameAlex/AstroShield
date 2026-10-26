@@ -205,3 +205,8 @@ td.mark.bad { color: var(--bad); }
   .metrics { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   select { max-width: 100%; }
 }
+#file-select-container, #file-select {
+  display: inline-flex !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
